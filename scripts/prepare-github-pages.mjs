@@ -25,6 +25,7 @@ for (const file of files) {
   const patched = original
     .replaceAll('"/assets/', `"${base}assets/`)
     .replaceAll("'/assets/", `'${base}assets/`)
+    .replaceAll("`/assets/", "`" + base + "assets/")
     .replaceAll("url(/assets/", `url(${base}assets/`);
   if (patched !== original) await writeFile(file, patched);
 }
@@ -36,7 +37,12 @@ const remaining = [];
 for (const file of files) {
   if (!textExtensions.has(extname(file))) continue;
   const content = await readFile(file, "utf8");
-  if (content.includes('"/assets/') || content.includes("'/assets/") || content.includes("url(/assets/")) remaining.push(file);
+  if (
+    content.includes('"/assets/')
+    || content.includes("'/assets/")
+    || content.includes("`/assets/")
+    || content.includes("url(/assets/")
+  ) remaining.push(file);
 }
 
 if (remaining.length > 0) {

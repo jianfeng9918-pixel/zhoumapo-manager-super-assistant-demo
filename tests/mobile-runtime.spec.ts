@@ -1,5 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
+test.use({ viewport: { width: 1100, height: 1100 } });
+
 async function drag(page: Page, locator: Locator, deltaX: number, deltaY: number, steps = 8) {
   const box = await locator.boundingBox();
   if (!box) throw new Error("Drag target has no bounding box");

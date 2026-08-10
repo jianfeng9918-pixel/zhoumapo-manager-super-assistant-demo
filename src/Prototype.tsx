@@ -1,6 +1,5 @@
 import {
   createContext,
-  type CSSProperties,
   type ComponentType,
   type Dispatch,
   type ReactNode,
@@ -59,12 +58,13 @@ import {
   MobileScroll,
   type FlowControls,
   type FlowScreen,
-  useMobileDevice,
 } from "./mobile";
 
 type TabId = "today" | "data" | "tasks" | "academy" | "mine";
 type WorkflowId = "meeting" | "purchase" | "hr" | "soldout" | "growth";
 type GoalId = "revenue" | "traffic" | "rating" | "cost";
+type TaskFilter = "全部" | "必做任务" | "领导下发" | "自己领取" | "我下发";
+type LessonId = "huang-revenue" | "founder-rhythm" | "meituan-review" | "strong-store";
 type SheetId = "notifications" | "voice-task" | "reset" | "help" | "data-info" | null;
 type IconType = ComponentType<{ className?: string }>;
 
@@ -100,6 +100,10 @@ type DemoContextValue = {
   resetDemo: () => void;
   openHelp: (topic: string) => void;
   helpTopic: string;
+  taskFilter: TaskFilter;
+  setTaskFilter: (filter: TaskFilter) => void;
+  activeLesson: LessonId;
+  setActiveLesson: (lesson: LessonId) => void;
 };
 
 const STORAGE_KEY = "zhoumapo-manager-assistant-v2";
@@ -180,6 +184,74 @@ const workflowPoints: Record<WorkflowId, number> = {
   growth: 20,
 };
 
+const lessonCatalog: Record<LessonId, {
+  source: string;
+  title: string;
+  lead: string;
+  duration: string;
+  learners: string;
+  goal: GoalId;
+  steps: Array<{ title: string; body: string }>;
+  result: string;
+}> = {
+  "huang-revenue": {
+    source: "黄老师经营课",
+    title: "客单价下降时，店长先做这3件事",
+    lead: "不要先打折。先让员工会推荐、敢推荐、知道推荐什么。",
+    duration: "3分钟",
+    learners: "1,286位店长学过",
+    goal: "revenue",
+    steps: [
+      { title: "锁定一个主推组合", body: "今天只推“招牌菜 + 饮品/小吃”，员工不需要记复杂套餐。" },
+      { title: "统一一句话术", body: "让员工用一句自然的搭配建议完成推荐，不靠硬推。" },
+      { title: "抽查两桌并及时反馈", body: "店长现场看两次真实推荐，做对立刻表扬，没做现场提醒。" },
+    ],
+    result: "18家模拟样本门店执行后，平均客单价提升7.2%",
+  },
+  "founder-rhythm": {
+    source: "创始人讲经营",
+    title: "店长不要盯一整天，只盯下一步",
+    lead: "经营不是多填表，而是在正确时间把最关键的一件事做完。",
+    duration: "5分钟",
+    learners: "本月必学",
+    goal: "revenue",
+    steps: [
+      { title: "开店前讲清目标", body: "晨会只讲今日差额、首要问题和每个人的下一步。" },
+      { title: "午市后只复盘异常", body: "正常指标不耗时间，只处理差评、库存和转化异常。" },
+      { title: "晚市前完成一次纠偏", body: "根据实时营业额与预测，调整推荐、客流或备货动作。" },
+    ],
+    result: "把店长一天的注意力压缩为5个关键经营节点",
+  },
+  "meituan-review": {
+    source: "外部精选 · 模拟摘要",
+    title: "美团差评24小时修复法",
+    lead: "先分辨情绪与事实，再把回复、整改和复查变成同一条任务。",
+    duration: "6分钟",
+    learners: "近7日差评3条",
+    goal: "rating",
+    steps: [
+      { title: "AI归因", body: "把反馈归到菜品、速度、服务或环境，避免只写道歉。" },
+      { title: "负责人立即整改", body: "明确谁在几点前完成什么，并上传照片或语音证据。" },
+      { title: "复联与复查", body: "联系顾客后，再看晚市同类问题是否继续出现。" },
+    ],
+    result: "形成“反馈—整改—复联—复查”的完整口碑闭环",
+  },
+  "strong-store": {
+    source: "强店案例 · 演示内容",
+    title: "晚市翻台提升：强店只做两个动作",
+    lead: "不是催顾客，而是提前把迎宾、点单和出菜节奏排顺。",
+    duration: "4分钟",
+    learners: "区域优秀案例",
+    goal: "traffic",
+    steps: [
+      { title: "17点前排一次岗", body: "按预订与预测客流安排迎宾、点单和传菜岗位。" },
+      { title: "盯首轮出菜", body: "首轮菜品速度决定顾客体感，异常立即找厨房纠偏。" },
+      { title: "高峰后复盘空档", body: "只记录等待最长的一个环节，第二天继续优化。" },
+    ],
+    result: "模拟强店案例中，晚市翻台率提升0.3次",
+  },
+};
+
 const DemoContext = createContext<DemoContextValue | null>(null);
 
 function useDemo() {
@@ -244,6 +316,8 @@ export default function Prototype() {
   const [toast, setToast] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [helpTopic, setHelpTopic] = useState("当前任务");
+  const [taskFilter, setTaskFilter] = useState<TaskFilter>("全部");
+  const [activeLesson, setActiveLesson] = useState<LessonId>("huang-revenue");
   const toastTimer = useRef<number | null>(null);
   const mockTimer = useRef<number | null>(null);
 
@@ -303,6 +377,8 @@ export default function Prototype() {
     window.localStorage.removeItem(STORAGE_KEY);
     setSheet(null);
     setActiveTab("today");
+    setTaskFilter("全部");
+    setActiveLesson("huang-revenue");
     showToast("演示已恢复到初始状态");
   };
 
@@ -327,7 +403,11 @@ export default function Prototype() {
     resetDemo,
     openHelp,
     helpTopic,
-  }), [activeTab, busy, helpTopic, sheet, state, toast]);
+    taskFilter,
+    setTaskFilter,
+    activeLesson,
+    setActiveLesson,
+  }), [activeLesson, activeTab, busy, helpTopic, sheet, state, taskFilter, toast]);
 
   return (
     <DemoContext.Provider value={context}>
@@ -345,10 +425,8 @@ export default function Prototype() {
 
 function MainShell({ flow }: { flow: FlowControls }) {
   const { activeTab } = useDemo();
-  const { device } = useMobileDevice();
-  const shellStyle = { "--app-top-safe": `${device.geometry.safeArea.top}px` } as CSSProperties;
   return (
-    <div className="app-shell" style={shellStyle}>
+    <div className="app-shell">
       {activeTab === "today" ? <TodayScreen flow={flow} /> : null}
       {activeTab === "data" ? <DataScreen flow={flow} /> : null}
       {activeTab === "tasks" ? <TasksScreen flow={flow} /> : null}
@@ -390,7 +468,7 @@ function BottomNav({ flow }: { flow: FlowControls }) {
 }
 
 function TodayScreen({ flow }: { flow: FlowControls }) {
-  const { setActiveTab, setSheet, state, selectGoal } = useDemo();
+  const { setActiveTab, setSheet, state, selectGoal, setTaskFilter } = useDemo();
   const meetingDone = state.meetingStage >= 5;
   const growthDone = state.growthStage >= 4;
   const nextTitle = !meetingDone ? "先开晨会，把今天讲清楚" : !growthDone ? "客单价提升" : "处理晚市菜品库存";
@@ -407,6 +485,10 @@ function TodayScreen({ flow }: { flow: FlowControls }) {
     } else flow.push(soldOutScreen);
   };
   const completedCount = 2 + state.completedFlows.length;
+  const openTasks = (filter: TaskFilter) => {
+    setTaskFilter(filter);
+    setActiveTab("tasks");
+  };
 
   return (
     <MobileScroll className="root-scroll home-scroll">
@@ -452,8 +534,20 @@ function TodayScreen({ flow }: { flow: FlowControls }) {
           </article>
         </section>
 
+        <section className="daily-source-section">
+          <div className="section-title-row compact-heading"><h2>我的每日任务</h2><button type="button" onClick={() => openTasks("全部")}>全部任务 <ChevronRightIcon /></button></div>
+          <div className="daily-source-grid">
+            <TaskSourceButton icon={CheckCircledIcon} tone="red" label="必做任务" value={meetingDone ? "2/4" : "1/4"} meta={meetingDone ? "下一项：午市巡检" : "晨会还未完成"} onClick={() => openTasks("必做任务")} />
+            <TaskSourceButton icon={PaperPlaneIcon} tone="orange" label="领导下发" value="2项" meta="运营中心 · 1项紧急" onClick={() => openTasks("领导下发")} />
+            <TaskSourceButton icon={TargetIcon} tone="green" label="自己领取" value={state.activeGoal ? "1项" : "0项"} meta={state.activeGoal ? "经营行动执行中" : "按目标主动领"} onClick={() => openTasks("自己领取")} />
+          </div>
+        </section>
+
         <section className="workbench-section">
-          <div className="section-title-row compact-heading"><h2>店务快捷处理</h2><span>点一下就开始</span></div>
+          <div className="section-title-row compact-heading"><h2>店务快捷处理</h2><span>少填表，直接做</span></div>
+          <button className="store-voice-command" type="button" onClick={() => setSheet("voice-task")}>
+            <span><SpeakerLoudIcon /></span><div><b>一句话安排店务</b><small>说清事情，AI自动拆任务并分发</small></div><em>按住说</em>
+          </button>
           <div className="tool-grid">
             <ToolButton icon={SpeakerLoudIcon} label="开晨会" meta={meetingDone ? "已闭环" : "AI拆任务"} tone="red" done={meetingDone} onClick={() => flow.push(meetingScreen)} />
             <ToolButton icon={ArchiveIcon} label="采购下单" meta={state.purchaseStage >= 5 ? "已验收" : "3项缺货"} tone="orange" done={state.purchaseStage >= 5} onClick={() => flow.push(purchaseScreen)} />
@@ -511,6 +605,14 @@ function ToolButton({ icon: Icon, label, meta, tone, done, onClick }: { icon: Ic
   return (
     <button className={`tool-button ${tone}`} type="button" onClick={onClick}>
       <span><Icon /></span><div><b>{label}</b><small>{meta}</small></div>{done ? <CheckCircledIcon className="tool-state done" /> : <ChevronRightIcon className="tool-state" />}
+    </button>
+  );
+}
+
+function TaskSourceButton({ icon: Icon, tone, label, value, meta, onClick }: { icon: IconType; tone: string; label: string; value: string; meta: string; onClick: () => void }) {
+  return (
+    <button className={`task-source-button ${tone}`} type="button" onClick={onClick}>
+      <span><Icon /></span><b>{label}</b><strong>{value}</strong><small>{meta}</small><ChevronRightIcon />
     </button>
   );
 }
@@ -574,6 +676,16 @@ function DataScreen({ flow }: { flow: FlowControls }) {
           <button type="button" onClick={() => goToGoal("revenue")}>生成行动 <ChevronRightIcon /></button>
         </section>
 
+        <section className="live-pulse-section">
+          <div className="section-heading"><h2>实时经营信号</h2><span>系统自动汇总</span></div>
+          <div className="live-pulse-list">
+            <DataPulse icon={StarFilledIcon} tone="danger" source="美团评价 · 16:08" title="新增1条两星评价：上菜偏慢" metric="待处理" meta="AI已归因到午市出菜速度" onClick={() => goToGoal("rating")} />
+            <DataPulse icon={DashboardIcon} tone="warning" source="收银POS · 15:50" title="主动推荐率降至31%" metric="-11%" meta="目标42%，预计影响营业额¥7,600" onClick={() => goToGoal("revenue")} />
+            <DataPulse icon={PersonIcon} tone="good" source="顾客反馈 · 14:26" title="堂食新增1条员工表扬" metric="+1" meta="顾客点名表扬王小丽服务主动" onClick={() => showToast("表扬已计入王小丽本周考核")} />
+          </div>
+          <div className="data-source-line"><LockClosedIcon /><span>演示数据源</span><b>美团</b><b>抖音</b><b>收银POS</b><b>顾客反馈</b></div>
+        </section>
+
         <section>
           <div className="section-heading"><h2>全渠道经营漏斗</h2><span>模拟实时回传</span></div>
           <div className="channel-list">
@@ -607,29 +719,43 @@ function ChannelRow({ name, color, visitors, orders, revenue, share, onClick }: 
   );
 }
 
+function DataPulse({ icon: Icon, tone, source, title, metric, meta, onClick }: { icon: IconType; tone: string; source: string; title: string; metric: string; meta: string; onClick: () => void }) {
+  return (
+    <button className="data-pulse-row" type="button" onClick={onClick}>
+      <span className={tone}><Icon /></span><div><small>{source}</small><b>{title}</b><p>{meta}</p></div><em className={tone}>{metric}</em><ChevronRightIcon />
+    </button>
+  );
+}
+
 function Metric({ title, value, meta, progress, danger, onClick }: { title: string; value: string; meta: string; progress: number; danger?: boolean; onClick: () => void }) {
   return <button className="metric-card" type="button" onClick={onClick}><span>{title}</span><b>{value}</b><small>{meta}</small><div className="progress-line"><i className={danger ? "danger" : ""} style={{ width: `${progress}%` }} /></div></button>;
 }
 
 function TasksScreen({ flow }: { flow: FlowControls }) {
-  const { state, setSheet } = useDemo();
-  const [filter, setFilter] = useState("全部");
-  const filters = ["全部", "总部必做", "AI建议", "主动领取", "店务"];
+  const { state, setSheet, taskFilter: filter, setTaskFilter: setFilter, selectGoal } = useDemo();
+  const filters: TaskFilter[] = ["全部", "必做任务", "领导下发", "自己领取", "我下发"];
   const tasks: Array<{ source: string; tone: string; title: string; meta: string; progress: number; status: string; action: () => void }> = [
-    { source: "总部必做", tone: "warning", title: "晚市新品主动推荐", meta: "18:00前 · 拍照+语音", progress: state.growthStage >= 4 ? 100 : 20, status: state.growthStage >= 4 ? "已完成" : "待执行", action: () => flow.push(growthScreen) },
-    { source: "AI建议", tone: "danger", title: "客单价提升行动", meta: "15:30前 · 3个动作", progress: Math.min(100, state.growthStage * 25), status: state.growthStage >= 4 ? "已完成" : state.growthStage ? "进行中" : "待领取", action: () => flow.push(growthScreen) },
-    { source: "店务", tone: "neutral", title: "采购缺货食材", meta: "16:30前 · 3项食材", progress: state.purchaseStage * 20, status: state.purchaseStage >= 5 ? "已验收" : "待处理", action: () => flow.push(purchaseScreen) },
-    { source: "人事", tone: "neutral", title: "新员工带教确认", meta: "今天 · 王小丽", progress: state.hrStage * 25, status: state.hrStage >= 4 ? "已确认" : "待考核", action: () => flow.push(hrScreen) },
-    { source: "店务", tone: "warning", title: "嫩牛肉库存处置", meta: "晚市前 · 仅剩6份", progress: state.soldoutStage * 25, status: state.soldoutStage >= 4 ? "已恢复" : "预警", action: () => flow.push(soldOutScreen) },
-    { source: "主动领取", tone: "good", title: "本周社群新增40人", meta: "周日截止 · 当前22人", progress: 55, status: "22/40", action: () => flow.push(growthScreen) },
+    { source: "必做任务", tone: "danger", title: "晨会与今日分工", meta: "09:10前 · 语音会议+员工回执", progress: state.meetingStage * 20, status: state.meetingStage >= 5 ? "已闭环" : state.meetingStage ? "进行中" : "现在做", action: () => flow.push(meetingScreen) },
+    { source: "必做任务", tone: "neutral", title: "晚市库存与沽清检查", meta: "17:00前 · 系统库存校验", progress: state.soldoutStage * 25, status: state.soldoutStage >= 4 ? "已恢复" : "待处理", action: () => flow.push(soldOutScreen) },
+    { source: "必做任务", tone: "neutral", title: "收官经营复盘", meta: "21:30 · 预测与实际核对", progress: 0, status: "未开始", action: () => flow.push(growthScreen) },
+    { source: "领导下发", tone: "warning", title: "晚市新品主动推荐", meta: "运营中心·林阳 · 18:00前 · 拍照+语音", progress: state.growthStage >= 4 ? 100 : 20, status: state.growthStage >= 4 ? "已完成" : "待执行", action: () => { selectGoal("revenue"); flow.push(growthScreen); } },
+    { source: "领导下发", tone: "warning", title: "周末门店朋友圈发布", meta: "市场中心 · 今天17:30前 · 截图回传", progress: 0, status: "待接收", action: () => setSheet("voice-task") },
+    { source: "自己领取", tone: "good", title: "客单价提升行动", meta: "AI诊断后主动领取 · 3个动作", progress: Math.min(100, state.growthStage * 25), status: state.growthStage >= 4 ? "已完成" : state.growthStage ? "进行中" : "可领取", action: () => { selectGoal("revenue"); flow.push(growthScreen); } },
+    { source: "自己领取", tone: "good", title: "本周社群新增40人", meta: "周日截止 · 当前22人", progress: 55, status: "22/40", action: () => { selectGoal("traffic"); flow.push(growthScreen); } },
+    ...(state.voiceTasks > 0 ? [{ source: "我下发", tone: "neutral", title: "新品推荐训练", meta: "前厅4人 · 8月12日16:00 · 拍照验收", progress: 100, status: "4/4已接收", action: () => setSheet("voice-task") }] : []),
   ];
-  const visible = filter === "全部" ? tasks : tasks.filter((task) => task.source === filter || (filter === "店务" && task.source === "人事"));
+  const visible = filter === "全部" ? tasks : tasks.filter((task) => task.source === filter);
   return (
     <MobileScroll className="root-scroll">
       <main className="root-content tasks-content" data-testid="tasks-screen">
-        <PageIntro eyebrow="三类来源 · 演示数据" title="今日任务" action={<button className="add-button" type="button" onClick={() => setSheet("voice-task")}><PlusIcon /> 语音下发</button>} />
-        <section className="task-overview-card"><div><b>{state.completedFlows.length}</b><span>已闭环</span></div><div><b>{Math.max(0, 5 - state.completedFlows.length)}</b><span>待处理</span></div><div><b>1</b><span>待验收</span></div><button type="button" onClick={() => flow.push(growthScreen)}>主动领取 <ChevronRightIcon /></button></section>
+        <PageIntro eyebrow="三类任务来源 · 演示数据" title="今日任务" action={<button className="add-button" type="button" onClick={() => setSheet("voice-task")}><PlusIcon /> 语音下发</button>} />
+        <section className="task-source-summary">
+          <button type="button" className={filter === "必做任务" ? "active" : ""} onClick={() => setFilter("必做任务")}><CheckCircledIcon /><span>必做任务<b>{state.meetingStage >= 5 ? "2/4" : "1/4"}</b><small>门店每日节奏</small></span></button>
+          <button type="button" className={filter === "领导下发" ? "active" : ""} onClick={() => setFilter("领导下发")}><PaperPlaneIcon /><span>领导下发<b>2项</b><small>总部与区域要求</small></span></button>
+          <button type="button" className={filter === "自己领取" ? "active" : ""} onClick={() => setFilter("自己领取")}><TargetIcon /><span>自己领取<b>{state.activeGoal ? "1项" : "0项"}</b><small>主动提升经营</small></span></button>
+        </section>
         <button className="voice-command-card" type="button" onClick={() => setSheet("voice-task")}><span><SpeakerLoudIcon /></span><div><b>说一句话，就能下发任务</b><small>AI自动补责任人、截止时间和验收方式</small></div><ChevronRightIcon /></button>
+        <button className="ai-claim-card" type="button" onClick={() => { selectGoal("revenue"); flow.push(growthScreen); }}><MagicWandIcon /><div><span>AI今日建议</span><b>领取“客单价提升”行动</b><small>预计追回营业额 ¥6,000–8,000</small></div><em>去领取 <ChevronRightIcon /></em></button>
         <Carousel ariaLabel="任务筛选" className="filter-carousel" contentClassName="filter-carousel-track">
           {filters.map((item) => <button type="button" key={item} className={filter === item ? "active" : ""} onClick={() => setFilter(item)}>{item}</button>)}
         </Carousel>
@@ -647,7 +773,7 @@ function TaskCard({ source, tone, title, meta, progress, status, onClick }: { so
 }
 
 function AcademyScreen({ flow }: { flow: FlowControls }) {
-  const { showToast, selectGoal } = useDemo();
+  const { showToast, selectGoal, setActiveLesson } = useDemo();
   const [topic, setTopic] = useState("提升业绩");
   const topics: Array<{ label: string; icon: IconType }> = [
     { label: "提升业绩", icon: RocketIcon },
@@ -655,24 +781,43 @@ function AcademyScreen({ flow }: { flow: FlowControls }) {
     { label: "人员带教", icon: PersonIcon },
     { label: "差评处理", icon: CrossCircledIcon },
   ];
+  const openLesson = (lesson: LessonId) => {
+    setActiveLesson(lesson);
+    flow.push(academyArticleScreen);
+  };
   return (
     <MobileScroll className="root-scroll">
       <main className="root-content academy-content" data-testid="academy-screen">
-        <PageIntro eyebrow="麻婆学院 · 86篇攻略" title="有问题，直接找做法" />
+        <PageIntro eyebrow="麻婆学院 · 课程与经营经验" title="有问题，直接找做法" />
         <button className="academy-search" type="button" onClick={() => showToast("可以直接说：客流不够怎么办？")}><MagnifyingGlassIcon /> 搜索经营问题或做法</button>
         <div className="topic-grid">
           {topics.map(({ label, icon: Icon }) => <button type="button" key={label} className={topic === label ? "active" : ""} onClick={() => setTopic(label)}><Icon /><span>{label}</span></button>)}
         </div>
-        <section className="coach-pick"><span><MagicWandIcon /> 根据你今天的数据推荐</span><h2>客单价下降时，店长先做这3件事</h2><p>来自18家提升门店的最佳实践，预计3分钟学会。</p><button type="button" onClick={() => flow.push(academyArticleScreen)}>立即学习 <ChevronRightIcon /></button></section>
-        <div className="section-heading"><h2>{topic}攻略</h2><span>可直接转任务</span></div>
+        <section className="coach-pick"><span><MagicWandIcon /> 根据今日客单异常推荐</span><h2>客单价下降时，店长先做这3件事</h2><p>黄老师经营课 · 3分钟 · 学完可直接转成行动。</p><button type="button" onClick={() => openLesson("huang-revenue")}>立即学习 <ChevronRightIcon /></button></section>
+
+        <div className="section-heading academy-lane-title"><h2>黄老师经营课</h2><span>把经验变成动作</span></div>
+        <CourseCard icon={PersonIcon} tone="teacher" source="黄老师 · 今日推荐" title="客单价提升的3步现场法" meta="3分钟 · 含话术与抽查动作" onClick={() => openLesson("huang-revenue")} />
+
+        <div className="section-heading academy-lane-title"><h2>创始人讲经营</h2><span>每周一讲</span></div>
+        <CourseCard icon={SpeakerLoudIcon} tone="founder" source="创始人讲 · 第08期" title="店长不要盯一整天，只盯下一步" meta="5分钟 · 开店、午市、晚市三个节点" onClick={() => openLesson("founder-rhythm")} />
+
+        <div className="section-heading academy-lane-title"><h2>{topic} · 案例精选</h2><span>可直接转任务</span></div>
         <div className="guide-list">
-          <GuideCard index="01" title="主动推荐话术：不硬推也能提高客单" meta="3分钟 · 1,286人学过" onClick={() => flow.push(academyArticleScreen)} />
-          <GuideCard index="02" title="差评24小时闭环：7类问题这样处理" meta="6分钟 · 968人学过" onClick={() => { selectGoal("rating"); flow.push(growthScreen); }} />
-          <GuideCard index="03" title="社群每周新增40人的门店动作" meta="5分钟 · 712人学过" onClick={() => { selectGoal("traffic"); flow.push(growthScreen); }} />
-          <GuideCard index="04" title="晚市备货怎么定，降低损耗不缺菜" meta="8分钟 · 638人学过" onClick={() => { selectGoal("cost"); flow.push(growthScreen); }} />
+          <GuideCard index="01" title="美团差评24小时修复法" meta="外部精选 · 模拟摘要 · 6分钟" onClick={() => openLesson("meituan-review")} />
+          <GuideCard index="02" title="强店晚市翻台提升：只做两个动作" meta="区域案例 · 4分钟" onClick={() => openLesson("strong-store")} />
+          <GuideCard index="03" title="社群每周新增40人的门店动作" meta="门店案例 · 5分钟" onClick={() => { selectGoal("traffic"); flow.push(growthScreen); }} />
+          <GuideCard index="04" title="晚市备货怎么定，降低损耗不缺菜" meta="经营工具 · 8分钟" onClick={() => { selectGoal("cost"); flow.push(growthScreen); }} />
         </div>
       </main>
     </MobileScroll>
+  );
+}
+
+function CourseCard({ icon: Icon, tone, source, title, meta, onClick }: { icon: IconType; tone: string; source: string; title: string; meta: string; onClick: () => void }) {
+  return (
+    <button className={`course-card ${tone}`} type="button" onClick={onClick}>
+      <span><Icon /></span><div><small>{source}</small><b>{title}</b><p>{meta}</p></div><em><PlayIcon /> 开始</em>
+    </button>
   );
 }
 
@@ -731,7 +876,7 @@ function MockButton({ busyKey, children, onClick, secondary = false }: { busyKey
 }
 
 function MeetingFlow({ flow }: { flow: FlowControls }) {
-  const { state, setState, runMock, completeFlow, openHelp } = useDemo();
+  const { state, setState, runMock, completeFlow, openHelp, setActiveTab, setTaskFilter } = useDemo();
   const stage = state.meetingStage;
   const setStage = (next: number, message: string, key: string) => runMock(key, message, (current) => ({ ...current, meetingStage: next }));
   return (
@@ -753,7 +898,7 @@ function MeetingFlow({ flow }: { flow: FlowControls }) {
         {stage === 4 ? (
           <section><div className="evidence-card"><img src={`${import.meta.env.BASE_URL}assets/task-evidence.jpg`} alt="员工午市任务回传" draggable={false} /><div><span><CheckCircledIcon /> AI验收通过</span><h2>午市卫生与主动推荐已执行</h2><p>照片环境整洁度92分；4名员工全部完成话术训练。</p></div></div><div className="impact-row"><span>任务接收</span><b>4/4</b><span>已完成</span><b>2/4</b><span>待复查</span><b>18:00</b></div><MockButton busyKey="meeting-complete" onClick={() => { setState((current) => ({ ...current, meetingStage: 5 })); completeFlow("meeting", workflowPoints.meeting, "晨会闭环已完成"); }}><CheckCircledIcon /> 完成晨会闭环</MockButton></section>
         ) : null}
-        {stage >= 5 ? <ResultPanel flow={flow} title="晨会闭环完成" evidence="语音转写 + 4项任务回执 + 午市照片" impact="减少会议记录时间约20分钟，4项任务都有责任人与截止时间" reward={12} onRestart={() => setState((current) => ({ ...current, meetingStage: 0 }))} onHelp={() => openHelp("晨会任务没有人确认")} /> : null}
+        {stage >= 5 ? <ResultPanel flow={flow} title="晨会闭环完成" evidence="语音转写 + 4项任务回执 + 午市照片" impact="减少会议记录时间约20分钟，4项任务都有责任人与截止时间" reward={12} nextTitle="去看4项任务的接收与进度" nextMeta="下一步：王小丽在11:30前完成午市巡检并拍照回传" onNext={() => { setTaskFilter("必做任务"); setActiveTab("tasks"); }} onRestart={() => setState((current) => ({ ...current, meetingStage: 0 }))} onHelp={() => openHelp("晨会任务没有人确认")} /> : null}
       </main>
     </MobileScroll>
   );
@@ -847,10 +992,10 @@ function ExecutionStep({ number, icon: Icon, title, meta, done, action, onClick 
   return <button className={`execution-step ${done ? "done" : ""}`} type="button" onClick={onClick}><span className="step-number">{done ? <CheckIcon /> : number}</span><span className="step-icon"><Icon /></span><span className="step-copy"><b>{title}</b><small>{meta}</small></span><em>{action}<ChevronRightIcon /></em></button>;
 }
 
-function ResultPanel({ flow, title, evidence, impact, reward, onRestart, onHelp, onContinue, extraAction }: { flow: FlowControls; title: string; evidence: string; impact: string; reward: number; onRestart: () => void; onHelp: () => void; onContinue?: () => void; extraAction?: ReactNode }) {
+function ResultPanel({ flow, title, evidence, impact, reward, onRestart, onHelp, onContinue, onNext, nextTitle = "回到今日，继续下一项", nextMeta = "AI会根据实时数据重新安排优先级", extraAction }: { flow: FlowControls; title: string; evidence: string; impact: string; reward: number; onRestart: () => void; onHelp: () => void; onContinue?: () => void; onNext?: () => void; nextTitle?: string; nextMeta?: string; extraAction?: ReactNode }) {
   const { showToast } = useDemo();
   return (
-    <section className="result-panel" data-testid="result-panel"><div className="result-check"><CheckIcon /></div><span>AI验收通过 · 演示反馈</span><h1>{title}</h1><p>{impact}</p><div className="result-facts"><div><small>完成证据</small><b>{evidence}</b></div><div><small>成长奖励</small><b><StarFilledIcon /> +{reward}</b></div><div><small>下次复查</small><b>今天 21:30</b></div></div><button className="primary-action" type="button" onClick={() => { onContinue?.(); showToast("已回到今日操作台"); flow.pop(); }}>继续下一项</button>{extraAction}<button className="secondary-action" type="button" onClick={onRestart}><CounterClockwiseClockIcon /> 重新演示（奖励不重复）</button><button className="help-action" type="button" onClick={onHelp}><InfoCircledIcon /> 我做不了，请求帮助</button></section>
+    <section className="result-panel" data-testid="result-panel"><div className="result-check"><CheckIcon /></div><span>AI验收通过 · 演示反馈</span><h1>{title}</h1><p>{impact}</p><div className="result-facts"><div><small>完成证据</small><b>{evidence}</b></div><div><small>成长奖励</small><b><StarFilledIcon /> +{reward}</b></div><div><small>下次复查</small><b>今天 21:30</b></div></div><div className="result-next"><MagicWandIcon /><span><small>建议下一步</small><b>{nextTitle}</b><p>{nextMeta}</p></span></div><button className="primary-action" type="button" onClick={() => { onContinue?.(); onNext?.(); showToast(onNext ? "已进入下一步" : "已回到今日操作台"); flow.pop(); }}>继续下一项</button>{extraAction}<button className="secondary-action" type="button" onClick={onRestart}><CounterClockwiseClockIcon /> 重新演示（奖励不重复）</button><button className="help-action" type="button" onClick={onHelp}><InfoCircledIcon /> 我做不了，请求帮助</button></section>
   );
 }
 
@@ -883,10 +1028,11 @@ function SyncRow({ name, state, icon: Icon, done }: { name: string; state: strin
 }
 
 function AcademyArticle({ flow }: { flow: FlowControls }) {
-  const { selectGoal, showToast } = useDemo();
+  const { selectGoal, showToast, activeLesson } = useDemo();
+  const lesson = lessonCatalog[activeLesson];
   return (
     <MobileScroll className="detail-scroll">
-      <article className="detail-content article-content"><span className="article-tag">AI推荐 · 3分钟 · 演示内容</span><h1>客单价下降时，店长先做这3件事</h1><p className="article-lead">不要先打折。先让员工会推荐、敢推荐、知道推荐什么。</p><section><b>01</b><div><h2>锁定一个主推组合</h2><p>今天只推“招牌菜 + 饮品/小吃”，员工不需要记复杂套餐。</p></div></section><section><b>02</b><div><h2>统一一句话术</h2><p>“今天很多客人会搭配这份小吃，口味更完整，需要帮您加一份吗？”</p></div></section><section><b>03</b><div><h2>抽查两桌并及时反馈</h2><p>店长现场看两次真实推荐，做对立刻表扬，没做现场提醒。</p></div></section><div className="case-result"><StarFilledIcon /><span><b>最佳实践结果</b><small>18家门店执行后，平均客单价提升7.2%</small></span></div><button className="primary-action" type="button" onClick={() => { selectGoal("revenue"); showToast("攻略已转成客单价提升任务"); flow.replace(growthScreen); }}>一键转成行动任务</button></article>
+      <article className="detail-content article-content"><span className="article-tag">{lesson.source} · {lesson.duration} · 演示内容</span><h1>{lesson.title}</h1><p className="article-lead">{lesson.lead}</p>{lesson.steps.map((step, index) => <section key={step.title}><b>{String(index + 1).padStart(2, "0")}</b><div><h2>{step.title}</h2><p>{step.body}</p></div></section>)}<div className="case-result"><StarFilledIcon /><span><b>学完可以做到</b><small>{lesson.result}</small></span></div><button className="primary-action" type="button" onClick={() => { selectGoal(lesson.goal); showToast("课程要点已转成今日行动"); flow.replace(growthScreen); }}>一键转成行动任务</button></article>
     </MobileScroll>
   );
 }
@@ -918,11 +1064,14 @@ function DemoSheet() {
 }
 
 function VoiceTaskSheet() {
-  const { setSheet, showToast, setState } = useDemo();
-  const [parsed, setParsed] = useState(false);
+  const { setSheet, showToast, setState, setActiveTab, setTaskFilter } = useDemo();
+  const [stage, setStage] = useState(0);
   return (
     <div className="voice-task-sheet">
-      {parsed ? <><div className="voice-transcript">“明天下午4点前，让前厅完成新品推荐训练，拍照回传。”</div><div className="parsed-task"><p><span>任务</span><b>新品推荐训练</b></p><p><span>责任人</span><b>前厅4人</b></p><p><span>截止</span><b>8月12日 16:00</b></p><p><span>验收</span><b>拍照 + AI识别</b></p></div><button className="primary-action" type="button" onClick={() => { setState((current) => ({ ...current, voiceTasks: current.voiceTasks + 1, activity: ["语音任务已分发：新品推荐训练", ...current.activity] })); setSheet(null); showToast("任务已创建并分发给前厅4人"); }}><PaperPlaneIcon /> 确认并分发</button></> : <><div className="voice-orb"><SpeakerLoudIcon /></div><h3>不用填表，说清楚事情就行</h3><p>AI会自动补齐责任人、时间、步骤和回传方式。</p><button className="primary-action" type="button" onClick={() => setParsed(true)}>点击开始语音演示</button></>}
+      {stage === 0 ? <><div className="voice-orb"><SpeakerLoudIcon /></div><h3>不用填表，说清楚事情就行</h3><p>AI会自动补齐责任人、时间、步骤和回传方式。</p><button className="primary-action" type="button" onClick={() => setStage(1)}><SpeakerLoudIcon /> 点击开始语音演示</button></> : null}
+      {stage === 1 ? <><div className="voice-listening"><div className="voice-wave" aria-hidden="true">{[1, 2, 3, 4, 5, 6, 7].map((item) => <i key={item} />)}</div><b>正在听 · 00:08</b><p>“明天下午4点前，让前厅完成新品推荐训练，拍照回传。”</p></div><button className="primary-action" type="button" onClick={() => setStage(2)}><MagicWandIcon /> 结束录音并让AI整理</button></> : null}
+      {stage === 2 ? <><div className="voice-transcript"><span>AI识别原话</span>“明天下午4点前，让前厅完成新品推荐训练，拍照回传。”</div><div className="parsed-task"><p><span>任务</span><b>新品推荐训练</b><button type="button" onClick={() => showToast("演示版：可语音修改任务内容")}>修改</button></p><p><span>责任人</span><b>前厅4人</b><button type="button" onClick={() => showToast("已匹配今天当班前厅员工")}>4人</button></p><p><span>截止</span><b>8月12日 16:00</b><button type="button" onClick={() => showToast("演示版：可点击调整截止时间")}>调整</button></p><p><span>验收</span><b>拍照 + AI识别</b><button type="button" onClick={() => showToast("可改为语音或系统数据验收")}>更换</button></p></div><div className="voice-ai-note"><MagicWandIcon /><span><b>AI已补充</b><small>训练步骤、4名当班员工、提醒时间和验收标准</small></span></div><button className="primary-action" type="button" onClick={() => { setState((current) => ({ ...current, voiceTasks: current.voiceTasks + 1, activity: ["语音任务已分发：新品推荐训练", ...current.activity] })); setStage(3); showToast("任务已创建并分发给前厅4人"); }}><PaperPlaneIcon /> 确认并分发</button></> : null}
+      {stage === 3 ? <><div className="voice-receipt-success"><CheckCircledIcon /><span>任务已送达</span><h3>前厅4人全部接收</h3><p>系统将在8月12日15:30提醒，并在16:00等待照片回传。</p><div><b>李明</b><b>陈佳</b><b>王小丽</b><b>张雪</b></div></div><button className="primary-action" type="button" onClick={() => { setTaskFilter("我下发"); setActiveTab("tasks"); setSheet(null); }}>查看我下发的任务</button><button className="secondary-action" type="button" onClick={() => setStage(0)}>再下一项任务</button></> : null}
     </div>
   );
 }

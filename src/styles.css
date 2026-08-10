@@ -64,6 +64,55 @@ button {
   padding: 24px;
 }
 
+.direct-app-stage {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 0%, rgb(223 37 23 / 7%), transparent 36%),
+    #f5f2ef;
+}
+
+.direct-app-screen {
+  position: relative;
+  width: min(100%, 480px);
+  height: 100%;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgb(66 45 34 / 6%), 0 18px 50px rgb(66 45 34 / 12%);
+  isolation: isolate;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.direct-app-screen img,
+.direct-app-screen .keyboard-asset {
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+.direct-app-screen input,
+.direct-app-screen textarea,
+.direct-app-screen select,
+.direct-app-screen option,
+.direct-app-screen [contenteditable="true"] {
+  -webkit-user-select: auto;
+  user-select: auto;
+}
+
+@media (max-width: 520px) {
+  .direct-app-stage {
+    background: #fff;
+  }
+
+  .direct-app-screen {
+    width: 100%;
+    box-shadow: none;
+  }
+}
+
 .device-menu-bar {
   position: absolute;
   z-index: 100;

@@ -4,16 +4,20 @@ import { KeyboardDock, KeyboardProvider, useKeyboard } from "./Keyboard";
 import { PhoneFrame } from "./PhoneFrame";
 import { HomeIndicator, StatusBar } from "./components";
 
-export function MobileRuntime({ children }: PropsWithChildren) {
+export function MobileRuntime({
+  children,
+  presentation = "device",
+}: PropsWithChildren<{ presentation?: "device" | "direct" }>) {
+  const direct = presentation === "direct";
   return (
     <MobileDeviceProvider>
-      <PhoneFrame>
+      <PhoneFrame presentation={presentation}>
         <KeyboardProvider>
           <KeyboardPreview />
-          <StatusBar />
+          {direct ? null : <StatusBar />}
           <MobileAppViewport>{children}</MobileAppViewport>
-          <HomeIndicator />
-          <KeyboardDock />
+          {direct ? null : <HomeIndicator />}
+          {direct ? null : <KeyboardDock />}
         </KeyboardProvider>
       </PhoneFrame>
     </MobileDeviceProvider>

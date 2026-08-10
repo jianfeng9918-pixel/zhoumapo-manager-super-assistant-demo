@@ -1,54 +1,43 @@
-# 周麻婆店长超级助手 V2｜Design QA
+# 周麻婆店长超级助手 V2｜直开升级版 Design QA
 
-**Comparison Setup**
+## 验收基准
 
-- Source visual truth: `/Users/huangjianfeng/.codex/generated_images/019fec0e-7b89-7482-862c-43bfb9adc957/exec-ac6b02ee-1f5a-4ec4-a4a6-e4481ea0c765.png`
-- Implementation screenshot: `/Users/huangjianfeng/Documents/周麻婆/outputs/20260811_店长超级助手演示_V2/implementation-mobile-screen-v2.png`
-- Browser-rendered evidence: `/Users/huangjianfeng/Documents/周麻婆/outputs/20260811_店长超级助手演示_V2/implementation-browser-final.png`
-- Viewport: browser override `1400 × 1200` CSS px; captured browser canvas `1400 × 1086` px; `deviceScaleFactor: 1`.
-- App viewport: protected mobile runtime screen verified at `393 × 852` CSS px and captured at `393 × 852` physical px.
-- Density normalization: source `853 × 1844` px was proportionally normalized and center-cropped to `393 × 852` px; implementation remained at native 1:1 density.
-- State: reset/initial home state, “三盛广场演示店 · 8月11日”, with “演示数据” visible.
-- Full-view comparison: `/Users/huangjianfeng/Documents/周麻婆/outputs/20260811_店长超级助手演示_V2/qa-comparison-v2.png`
-- Focused top comparison: `/Users/huangjianfeng/Documents/周麻婆/outputs/20260811_店长超级助手演示_V2/qa-focus-top-v2.png`
-- Focused primary-action and quick-tools comparison: `/Users/huangjianfeng/Documents/周麻婆/outputs/20260811_店长超级助手演示_V2/qa-focus-actions-v2.png`
+- 视觉方向：延续用户已确认的周麻婆红白暖色移动操作台。
+- 公开展示：网页打开即小程序式工作台，不显示手机边框、摄像头、状态栏、Home Indicator 或设备选择器。
+- 模拟口径：三盛广场演示店、8月11日、今日营业额 ¥63,800、目标 ¥100,000、经营健康 73；所有数据继续标注为演示数据。
+- 浏览器实测尺寸：`320 × 720`、`393 × 852`、`412 × 915` CSS px。
+- 代码检查：TypeScript、Vite/Sites 构建、GitHub Pages 子路径构建、运行框架锁与自动化交互测试。
 
-**Findings**
+## 视觉与信息层级
 
-- No actionable P0, P1, or P2 mismatch remains.
-- Fonts and typography: the implementation preserves the source hierarchy of bold manager greeting, red primary KPI, compact supporting labels, and strong action titles. Chinese system-font fallback renders consistently without clipping or broken wrapping.
-- Spacing and layout rhythm: the `393 × 852` screen preserves the source's white space, thin KPI strip, light card elevation, warm-red primary action, and fixed five-item navigation. The V2 home intentionally replaces the source's above-the-fold timeline detail with “现在最重要”, four store-operation shortcuts, and “我想提升”; the full timeline remains below the fold and this is an approved product change rather than accidental drift.
-- Colors and visual tokens: warm red, gold growth accents, green positive states, light gray surfaces, and semantic warning colors remain aligned with the selected visual language. Contrast remains legible on white and tinted cards.
-- Image quality and asset fidelity: the original Zhoumapo brand asset is used directly with no handcrafted substitute. Runtime-owned device bezel, status bar, and home indicator remain outside app content and were excluded from the 1:1 comparison crop.
-- Copy and content: app-specific copy is concise, action-led, and self-explanatory. “问题—行动—执行—反馈—经营结果” is visible through the primary action and each workflow rather than through instruction-heavy text.
-- Icons and affordances: one icon family is used across navigation, shortcuts, states, and actions. All app-owned visible controls have a minimum `44 × 44` CSS px touch target and provide visible pressed/loading/success feedback.
-- Responsiveness: iPhone `393 × 852` and Pixel `427 × 952` were checked with no horizontal overflow, clipped navigation, safe-area collision, or unwanted keyboard.
-- Interaction states: all five business workflows, all four growth goals, tab navigation, filters, persistence, reset, loading feedback, success receipts, remediation, replay, and help were exercised.
-- Console check: no browser console errors or warnings after the complete interaction suite.
+- 首页首屏依次呈现品牌与问候、今日经营、下一件最重要的事、三类每日任务；店长无需阅读说明即可知道先做什么。
+- “必做任务 / 领导下发 / 自己领取”使用同一层级的三张卡片，数量、来源与下一步均可见，点击直接进入相应任务列表。
+- “店务快捷处理”把语音下发作为主入口，采购、沽清、考核、晨会保留为四个明确快捷动作。
+- 数据页保留六维健康与渠道漏斗，并增加美团评价、收银 POS、顾客反馈三类实时信号；异常信号都有行动出口。
+- 学院页已形成“今日AI推荐—黄老师经营课—创始人讲—案例与外部精选”的清楚层级，课程可直接转任务。
+- 红色只用于主行动与异常，金色用于建议与成长，绿色用于通过与反馈；未引入与既有视觉冲突的新风格。
+- 所有 app-owned 可见按钮保持不小于 `44px` 的触控高度，点击焦点不再出现浏览器默认蓝色边框。
 
-**Open Questions**
+## 交互验收
 
-- None blocking. The smaller visible logo and slightly denser KPI labels are expected consequences of using the protected real-device runtime with status-bar chrome; they do not reduce comprehension.
+- 语音下发：开始模拟录音 → AI识别原话 → 自动补责任人/截止时间/验收方式 → 确认分发 → 4人接收回执 → 进入“我下发”。
+- 晨会：录音转写 → AI拆4项任务 → 一键下发 → 员工回执 → 照片验收 → 结果反馈 → 自动进入必做任务。
+- 采购、人事、沽清、经营提升四个首页入口均可进入对应流程。
+- 数据异常可进入评分、业绩、客流或成本行动；课程内容可一键转经营任务。
+- 页面刷新保留进度；重置演示恢复初始状态与默认任务筛选。
+- `320px`、`393px`、`412px` 三种宽度下，`body.scrollWidth` 与视口宽度一致，无横向溢出；底部五栏导航保持可用。
 
-**Comparison History**
+## 自动化与构建结果
 
-1. Initial comparison found two P2 mobile-polish issues: the last bottom-sheet action had `0px` safe-area clearance, and two app-owned controls measured below the `44px` touch-target standard.
-2. Fixes applied: bottom-sheet content now reserves `52px` safe-area clearance; the notification control and compact text action now use minimum `44 × 44px` hit areas.
-3. Post-fix evidence: `qa-comparison-v2.png`, `qa-focus-top-v2.png`, and `qa-focus-actions-v2.png`; DOM measurements confirmed `52px` bottom clearance and no remaining undersized visible app controls.
+- `npm run check:runtime`：通过，28个受保护运行文件锁一致。
+- `npm run verify`：通过，Sites 构建4项测试全部通过，GitHub Pages 子路径包生成成功。
+- `npm run test:runtime`：通过，14/14；包含6项店长操作台场景与8项移动运行框架场景。
+- 浏览器控制台未发现影响演示的错误；品牌资源与任务证据图片本地加载正常。
 
-**Implementation Checklist**
+## 当前结论
 
-- [x] Runtime integrity check passes.
-- [x] Initial home matches the selected visual direction at 1:1 mobile scale.
-- [x] Five navigation destinations are usable.
-- [x] Five end-to-end business workflows are complete.
-- [x] Four active-growth goals can be claimed and completed.
-- [x] Loading, receipt, acceptance, remediation, persistence, and reset states work.
-- [x] iPhone and Pixel breakpoints have no overflow or safe-area obstruction.
-- [x] Console is clean after the primary interaction suite.
-
-**Follow-up Polish**
-
-- [P3] If more brand prominence is wanted later, enlarge the logo by 2–4px and reduce KPI microcopy density after live user testing; neither change is required for this release.
+- 无 P0、P1、P2 阻断项。
+- 本轮目标“直开式手机工作台、每日三类任务、语音分发、晨会后续、真实数据源、学院内容与行动关联”均已在可交互页面中实现。
+- 当前版本可进入 GitHub Pages 发布与线上复验。
 
 final result: passed

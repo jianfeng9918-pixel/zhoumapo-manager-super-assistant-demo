@@ -12,6 +12,7 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { useDrag } from "@use-gesture/react";
 import { useMobileDevice } from "./Device";
+import { useMobilePresentation } from "./PhoneFrame";
 import { useKeyboard, useKeyboardDismissDrag, useKeyboardInsets } from "./Keyboard";
 
 export type FlowScreen = {
@@ -56,6 +57,7 @@ function FlowProvider({ value, children }: PropsWithChildren<{ value: FlowContro
 
 export function FlowStack({ initial }: { initial: FlowScreen }) {
   const { device } = useMobileDevice();
+  const presentation = useMobilePresentation();
   const keyboard = useKeyboard();
   const { bottomInset, keyboardDragging } = useKeyboardInsets();
   const dismissKeyboardDrag = useKeyboardDismissDrag();
@@ -146,12 +148,14 @@ export function FlowStack({ initial }: { initial: FlowScreen }) {
     },
   );
 
-  const screenWidth = device.geometry.screen.width;
+  const screenWidth = presentation === "direct"
+    ? Math.max(device.geometry.screen.width, Math.min(window.innerWidth, 480))
+    : device.geometry.screen.width;
   const topIndex = stack.length - 1;
   const parkedX = -screenWidth * 0.28;
   const header = controls.current.header?.(controls);
   const headerHeight = controls.current.headerHeight ?? 0;
-  const headerSafeArea = header ? device.geometry.safeArea.top : 0;
+  const headerSafeArea = header && presentation === "device" ? device.geometry.safeArea.top : 0;
   const totalHeaderHeight = header ? headerSafeArea + headerHeight : 0;
   const footer = controls.current.footer?.(controls);
   const footerHeight = controls.current.footerHeight ?? 0;

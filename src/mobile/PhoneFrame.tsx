@@ -15,6 +15,7 @@ import { useMobileCursor } from "./MobileCursor";
 
 type ScreenPortalContextValue = {
   screenRef: RefObject<HTMLDivElement | null>;
+  presentation: "device" | "direct";
 };
 
 const ScreenPortalContext = createContext<ScreenPortalContextValue | null>(null);
@@ -35,6 +36,10 @@ export function useScreenPortal() {
   }
 
   return context;
+}
+
+export function useMobilePresentation() {
+  return useScreenPortal().presentation;
 }
 
 function getDeviceScale(deviceWidth: number, deviceHeight: number) {
@@ -61,13 +66,41 @@ function useDeviceScale(deviceWidth: number, deviceHeight: number) {
   return scale;
 }
 
-export function PhoneFrame({ children }: PropsWithChildren) {
+export function PhoneFrame({
+  children,
+  presentation = "device",
+}: PropsWithChildren<{ presentation?: "device" | "direct" }>) {
   const { device } = useMobileDevice();
   const { geometry } = device;
   const scale = useDeviceScale(geometry.device.width, geometry.device.height);
   const screenRef = useRef<HTMLDivElement | null>(null);
-  const contextValue = useMemo(() => ({ screenRef }), []);
+  const contextValue = useMemo(() => ({ screenRef, presentation }), [presentation]);
   const mobileCursor = useMobileCursor();
+
+  if (presentation === "direct") {
+    return (
+      <ScreenPortalContext.Provider value={contextValue}>
+        <div className="direct-app-stage" onDragStartCapture={suppressNativeDrag}>
+          <div
+            ref={screenRef}
+            className="direct-app-screen"
+            data-device={device.id}
+            data-platform={device.platform}
+            data-phone-screen
+            data-presentation="direct"
+            data-testid="device-screen"
+            style={
+              {
+                "--device-safe-area-bottom": "env(safe-area-inset-bottom, 0px)",
+              } as CSSProperties
+            }
+          >
+            {children}
+          </div>
+        </div>
+      </ScreenPortalContext.Provider>
+    );
+  }
 
   return (
     <ScreenPortalContext.Provider value={contextValue}>

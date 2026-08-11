@@ -102,3 +102,12 @@ When any text-entry control loses focus, dismiss the simulated keyboard. If the 
 - Procurement, HR, and sold-out are no longer home modules. They appear only as lightweight actions when a relevant operating problem occurs.
 - V4 uses only `zhoumapo-manager-assistant-v4` and must not read or overwrite V2/V3 progress. All figures, weather, members, reservations, evidence, channel results, and AI conclusions remain deterministic demo data.
 - V4营业前首页使用自然问候和一句AI晨间判断，不再把昨日营业、今日预测、好坏信号和顾客缺口排成仪表盘。金额、桌数和顾客数只能作为判断依据写进简短叙述，视觉重心必须落在今天第一步行动。
+
+## 周麻婆终局版 Product Decisions
+
+- 终局版选定的首页视觉源是 `/Users/huangjianfeng/.codex/generated_images/019fec0e-7b89-7482-862c-43bfb9adc957/exec-34121e95-f523-4d50-b11d-8df188e8b5f1.png`。实现必须复用其白底、暖红、AI 对话与行动融合主卡、单一红色一级按钮和紧凑经营路线，不再从其他候选稿混搭布局。
+- 首页首屏必须同时看到一句经营判断、两条依据、唯一主行动、人工确认提示、下一次复查和五栏导航。标题不超过 26px，正文以 14–15px 为主，不恢复健康值、六维评分、密集数字矩阵或传统后台看板。
+- 终局版角色为 `storeManager / regionalManager / headquarters`，三者共享同一个经营问题、行动、证据、求助、验收和策略版本；角色页面按角色懒加载，业务组件只通过适配器读取模拟业务能力。
+- AI 只负责分析、预填、生成、初验和追踪。任何正式下发、资源申请、人工验收或总部策略发布，都必须先产生可追溯的人工确认记录。
+- 店长是日常主角色；区域经理只看必须介入的门店、待验收和求助；总部只看跨区域重复问题、策略模板和资源需求。订货与排班不做可见页面，仅在接口模型中保留扩展边界。
+- 终局版使用独立存储键 `zhoumapo-manager-assistant-final-v1`，不读取或覆盖 V2、V3、V4 演示进度。全量经营、平台、证据和 AI 结论继续显著标注为演示数据。

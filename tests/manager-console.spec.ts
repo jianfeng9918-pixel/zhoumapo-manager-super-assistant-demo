@@ -42,17 +42,18 @@ test.beforeEach(async ({ page }) => {
   await resetDemo(page);
 });
 
-test("V4 opens at 08:30 with yesterday review and forecast instead of a live KPI dashboard", async ({ page }) => {
+test("V4 opens at 08:30 with a conversational morning brief instead of a KPI dashboard", async ({ page }) => {
   await expect(page.getByTestId("device-screen")).toHaveAttribute("data-presentation", "direct");
-  await expect(page.getByRole("heading", { name: "黄店长，先看清今天" })).toBeVisible();
-  await expect(page.getByText("昨日复盘")).toBeVisible();
-  await expect(page.getByText("¥98,600")).toBeVisible();
-  await expect(page.getByText("每桌平均比上周多消费 ¥18")).toBeVisible();
-  await expect(page.getByText("18点后比正常少来 32 位顾客")).toBeVisible();
-  await expect(page.getByText("约 25 桌")).toBeVisible();
-  await expect(page.getByText("65 位顾客")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "早上好，黄店长" })).toBeVisible();
+  await expect(page.getByText("AI晨间简报")).toBeVisible();
+  await expect(page.getByText(/昨天 ¥98,600，基本达标；今天预计 ¥92,000/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "真正要补的，是晚市约 65 位顾客" })).toBeVisible();
+  await expect(page.getByText(/每桌消费正常，问题是晚市比正常少来 32 位顾客/)).toBeVisible();
+  await expect(page.getByText(/约 25 桌；不行动预计少完成 ¥8,000/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "开个短晨会，把晚市目标讲清楚" })).toBeVisible();
   await expect(page.getByRole("button", { name: /查看今日经营剧本/ })).toBeVisible();
   await expect(page.getByText("当前完成", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("昨日复盘 + 今日预测")).toHaveCount(0);
   await expect(page.getByText(/六维|门店健康|经营健康/)).toHaveCount(0);
   expect(await page.evaluate(() => document.body.scrollWidth)).toBe(393);
 });
@@ -296,7 +297,7 @@ test("V4 progress persists and reset restores the pre-open story without touchin
   await nav.getByRole("button", { name: "我的" }).click();
   await page.getByRole("button", { name: /重置全部演示/ }).click();
   await page.getByRole("button", { name: /确认重置演示/ }).click();
-  await expect(page.getByRole("heading", { name: "黄店长，先看清今天" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "早上好，黄店长" })).toBeVisible();
   await expect(page.evaluate(() => window.localStorage.getItem("zhoumapo-manager-assistant-v3"))).resolves.toBeNull();
 });
 

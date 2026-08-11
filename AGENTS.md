@@ -101,3 +101,4 @@ When any text-entry control loses focus, dismiss the simulated keyboard. If the 
 - Huang is the only primary role. Regional manager Lin remains a secondary demo entry under `我的`, with cross-role issue, evidence review, rejection, and help reply using direct operating gaps rather than scores.
 - Procurement, HR, and sold-out are no longer home modules. They appear only as lightweight actions when a relevant operating problem occurs.
 - V4 uses only `zhoumapo-manager-assistant-v4` and must not read or overwrite V2/V3 progress. All figures, weather, members, reservations, evidence, channel results, and AI conclusions remain deterministic demo data.
+- V4营业前首页使用自然问候和一句AI晨间判断，不再把昨日营业、今日预测、好坏信号和顾客缺口排成仪表盘。金额、桌数和顾客数只能作为判断依据写进简短叙述，视觉重心必须落在今天第一步行动。

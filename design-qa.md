@@ -1,90 +1,87 @@
-# V4 Design QA
+# V4 首页反馈轮 Design QA
 
 ## Comparison metadata
 
-- source visual truth path: `/Users/huangjianfeng/.codex/generated_images/019fec0e-7b89-7482-862c-43bfb9adc957/exec-ac6b02ee-1f5a-4ec4-a4a6-e4481ea0c765.png`
-- browser-rendered implementation screenshot: `/tmp/zhoumapo-v4-redesign-pass2-393x852.png`
-- final browser-rendered implementation screenshot: `/tmp/zhoumapo-v4-final-home-393x852.png`
-- full-view comparison evidence: `/tmp/zhoumapo-v4-redesign-comparison.png`
-- viewport: `393 × 852 CSS px`
-- measured app screen: `393 × 852 CSS px`, `data-presentation="direct"`, no horizontal overflow
-- source pixels: `853 × 1844`
+- user-annotated source: `/var/folders/lg/kx5vnbtn67v18w1mzyflqv700000gn/T/codex-clipboard-b17df996-6d5d-43fa-ad6f-47437ee30cd9.png`
+- confirmed visual baseline: `/Users/huangjianfeng/.codex/generated_images/019fec0e-7b89-7482-862c-43bfb9adc957/exec-ac6b02ee-1f5a-4ec4-a4a6-e4481ea0c765.png`
+- browser-rendered implementation: `/tmp/zhoumapo-v4-conversational-home-final-393x852.png`
+- final before/after comparison: `/tmp/zhoumapo-v4-user-feedback-comparison-final.png`
+- compact-width evidence: `/tmp/zhoumapo-v4-conversational-home-320x852-pass2.png`
+- action-detail evidence: `/tmp/zhoumapo-v4-conversational-playbook-393x852.png`
+- target viewport: `393 × 852 CSS px`
+- source pixels: `994 × 1466`
 - implementation pixels: `393 × 852`
-- density normalization: source was proportionally fitted to `393 × 852`; implementation was captured at the app screen's native `393 × 852` CSS size with device scale factor 1
+- comparison pixels: `810 × 904`
 - state: 黄店长 · 三盛广场演示店 · 8月11日 · 08:30营业前 · 初始演示状态
 
-## Findings
+## User feedback translated into design requirements
+
+- “先看清今天” sounds like an instruction from the system rather than a natural assistant greeting.
+- The previous actual-versus-forecast grid, colored signal cells, and gap card read as a management dashboard.
+- The first screen should make the manager feel guided, not examined: one conclusion, one reason, and one next action.
+- Business figures remain necessary, but they must support the judgment instead of becoming the visual subject.
+
+## Final findings
 
 - No actionable P0, P1, or P2 findings remain.
-- [P3] The source shows a mid-day live-operation state while V4 deliberately opens in a pre-business state. The visual hierarchy is compared rather than the literal metrics: brand header, compact operating report, day rhythm, one dominant red action, and fixed bottom navigation remain aligned.
-- [P3] V4 removes the source's growth badge from the home header. This is intentional product scope: growth evidence is shown after operating results and in “我的”, so it does not compete with the day's main action.
+- [P3] The morning brief remains inside a white card to preserve the confirmed mobile card language. Its internal structure is now conversational rather than KPI-based, so the card behaves as an AI briefing instead of a dashboard panel.
+- [P3] The amount, table, and guest conversions remain visible because the demo must explain the operating gap. They are compressed into one supporting line with a dedicated calculation explanation.
 
-## Required fidelity surfaces
+## Changes verified
 
-- Fonts and typography: system CJK typography keeps the source's strong black headline, red result figures, compact evidence text, and clear action hierarchy. No clipped or broken wrapping was found at 393px; automated overflow checks also passed at 320px and 412px.
-- Spacing and layout rhythm: the revised screen uses one compact report, one route strip, and one red mission card. The primary CTA is fully visible above the fixed navigation at the target viewport. Card radii, gaps, and elevation stay consistent with the confirmed white/warm-red mobile language.
-- Colors and visual tokens: warm red is reserved for the primary judgment and action; green and amber only encode “做得好/要关注”. White surfaces and subtle warm-gray borders match the source direction and avoid dashboard density.
-- Image quality and asset fidelity: the supplied Zhoumapo logo asset is used directly with correct aspect ratio and sharpness. Radix icons remain from one consistent family; no emoji, placeholder imagery, custom SVG art, or CSS-drawn brand assets were introduced.
-- Copy and content: data is translated into manager language—`25桌、65位顾客、少11桌预约`—and immediately connected to the next action. Current revenue and forecast revenue remain explicitly separated.
-- Accessibility and interaction: touch controls are at least 44px, semantic buttons/headings are present, a branded `focus-visible` style is defined, reduced-motion is supported, and console error/warning checks returned an empty list.
+- Replaced `黄店长，先看清今天` with the natural greeting `早上好，黄店长`.
+- Removed the dual-column `昨日营业 / 今日预计` KPI presentation, status tiles, arrow connector, and standalone gap panel.
+- Rebuilt the first card as an `AI晨间简报`: a short recap, one large manager-language conclusion, one cause sentence, and one compact conversion line.
+- Changed the action section from a second data-heavy mission card into `今天第一步`: a three-minute morning meeting with a single supporting note and one primary CTA.
+- Preserved the key product distinction: current revenue is not increased when an action completes; only forecast and customer gap change until actual closing.
+- Added compact 320px rules so the primary CTA remains fully visible above the fixed bottom navigation.
 
-## Full-view comparison evidence
+## Visual review
 
-The normalized side-by-side comparison shows that V4 retains the source's visual anchors while changing the business story from live KPI monitoring to pre-open coaching. The first implementation pass looked like stacked BI cards and hid the main CTA behind the navigation. The revised pass restores the source's action-led rhythm: compact report → time route → dominant red action → script timeline.
-
-## Focused-region evidence
-
-Separate implementation captures were inspected because the complete V4 story includes states not present in the single source visual:
-
-- `/tmp/zhoumapo-v4-tasks-393x852.png`: five-step script timeline, source/status labels, and action cards.
-- `/tmp/zhoumapo-v4-academy-393x852.png`: current-problem context, voice entry, one case, and three actions.
-- `/tmp/zhoumapo-v4-playbook-detail-393x852.png`: AI analysis, reason chain, complete time line, and sticky primary action.
-- `/tmp/zhoumapo-v4-meeting-result-393x852.png`: evidence, business result, manager growth, follow-up time, and next action.
-
-No additional source-region crop was required: at the normalized original comparison size, the logo, headline scale, report density, route, action card, CTA, and bottom navigation are all legible enough to judge without enlargement.
+- Typography: the greeting is calm and human; the largest type is now the operating conclusion, not a raw metric. Supporting figures use one line and no longer compete with the action.
+- Hierarchy: brand and greeting → AI conclusion → reason and conversion basis → day route → first action. Only one red primary button is visible.
+- Spacing: the top screen has fewer nested containers, lighter borders, and more breathing room. At `393 × 852`, the primary action clears the bottom navigation.
+- Color: warm red is reserved for risk, conclusion, and the primary action. The green/amber dashboard blocks were removed from the first screen.
+- Assets: the supplied Zhoumapo logo is still used directly. Icons remain from the existing component library; no fake or placeholder assets were introduced.
+- Mobile fit: no horizontal overflow at `320`, `393`, or `412` widths. The 320px capture confirms that the complete CTA remains reachable without being hidden by navigation.
+- Accessibility: interactive targets remain at least 44px, semantic headings/buttons remain present, reduced-motion support is unchanged, and browser console inspection returned no errors or warnings.
 
 ## Comparison history
 
-### Pass 1 — blocked
+### Feedback baseline — blocked
 
-- Evidence: `/tmp/zhoumapo-v4-design-comparison.png`
-- [P1] The initial V4 home became a stack of generic analytics cards and lost the source's strong action timeline and dominant task card.
-- [P1] The primary “查看今日经营剧本” action was partially obscured by the fixed bottom navigation at `393 × 852`.
-- [P2] The judgment card had weak contrast and too much evidence before the action, making V4 feel more like BI than a manager operating console.
+- Evidence: `/tmp/zhoumapo-v4-redesign-pass2-393x852.png`
+- [P1] The heading gave the manager an abstract command instead of starting a natural conversation.
+- [P1] The actual/forecast grid, colored result cells, and gap box formed a classic KPI dashboard above the fold.
+- [P2] Too many figures required the manager to interpret the screen before understanding the day's problem.
+- [P2] On the first compact pass, the CTA was too close to the fixed navigation at 320px.
 
-Fixes made:
+### Conversational redesign — passed
 
-- Combined yesterday review and today's forecast into one compact operating report.
-- Restored a horizontal day rhythm immediately below the report.
-- Rebuilt the AI judgment as a warm-red outlined mission card with one clear CTA.
-- Converted raw signals into three small action-evidence cells and moved secondary script steps below the CTA.
-- Reduced above-the-fold card height so the primary CTA clears the fixed navigation.
+- Evidence: `/tmp/zhoumapo-v4-user-feedback-comparison-final.png`
+- The before/after comparison is legible at full view; no focused crop is required.
+- The final screen opens with a human greeting, expresses the day's issue in restaurant language, keeps only the evidence needed to trust the conclusion, and immediately presents the first action.
+- The separate playbook capture verifies that the main CTA enters the complete operating story rather than ending at a visual-only card.
 
-### Pass 2 — passed
+## Primary interactions checked
 
-- Evidence: `/tmp/zhoumapo-v4-redesign-comparison.png`
-- Post-fix result: the main action is visible, the screen has one visual focal point, operating data supports rather than dominates the action, and no P0/P1/P2 differences remain.
+- Open `查看今日经营剧本` from the first action and reach `今天补回25桌、65位顾客`.
+- Return to the operating console with correct scroll position.
+- Open `为什么这样计算` and reach the conversion-basis explanation.
+- Verify the redesigned reset state after switching operating moments.
+- Verify 320, 393, and 412 widths without horizontal overflow.
+- Verify browser console errors and warnings: none.
 
-## Primary interactions tested
+## Automated evidence
 
-- Open today's script from the operating console.
-- Complete the six-step morning meeting and reach the unified result panel.
-- Navigate Today, Data, Tasks, Academy, and Mine.
-- Inspect data explanations, task timeline, knowledge-case action, and manager growth.
-- Verify console errors/warnings: none.
-- Automated runtime/business suite: 24 tests passed, including 320/393/412 widths, refresh persistence, reset, reduced-motion/runtime behavior, and cross-role workflow.
+- Conversational morning brief and conversion-basis tests: passed.
+- Reset-to-morning regression test: passed after updating the expected natural greeting.
+- Full runtime/business suite: `24 passed`.
+- Protected mobile runtime integrity: `28 protected files passed`.
+- Production, Sites, and GitHub Pages builds: passed; GitHub Pages subpath bundle generated successfully.
 
-## Implementation checklist
+## Follow-up boundary
 
-- [x] Source and implementation opened and normalized.
-- [x] Main action visible at `393 × 852`.
-- [x] No horizontal overflow at `320`, `393`, or `412` widths.
-- [x] Typography, spacing, tokens, asset fidelity, copy, interactions, and accessibility reviewed.
-- [x] Browser console checked.
-- [x] P1/P2 issues from the first pass fixed and compared again.
-
-## Follow-up polish
-
-- If the product later receives real restaurant photography, the Academy case card could gain one restrained evidence thumbnail. The current demo intentionally avoids inventing imagery that is not in the supplied asset set.
+- This feedback round only changes the first-screen information experience and supporting responsive styles. It does not alter the protected phone runtime, other V4 business loops, or the V3 local-storage state.
 
 final result: passed

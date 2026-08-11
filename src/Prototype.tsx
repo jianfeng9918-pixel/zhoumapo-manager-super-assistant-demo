@@ -461,7 +461,7 @@ function TodayScreen({ flow }: { flow: FlowControls }) {
 
       <PageIntro
         eyebrow={`三盛广场演示店 · 8月11日 · ${snapshot.time}`}
-        title={preOpen ? "黄店长，先看清今天" : closing ? "黄店长，今天辛苦了" : "黄店长，现在看这件事"}
+        title={preOpen ? "早上好，黄店长" : closing ? "黄店长，今天辛苦了" : "黄店长，现在看这件事"}
         badge="演示数据"
       />
 
@@ -470,22 +470,16 @@ function TodayScreen({ flow }: { flow: FlowControls }) {
       {!closing ? <DayRoute current={state.moment} onSwitch={() => setSheet("moment")} /> : null}
 
       {!closing ? <section className="priority-section">
-        <div className="priority-heading"><h2>现在最重要</h2><span>{snapshot.label} · AI已排好</span></div>
-        <article className="coach-callout priority-mission-card">
-          <div className="mission-kicker"><span><MagicWandIcon /> AI区域经理判断</span><em>现在做</em></div>
-          <h2>{snapshot.headline}</h2>
-          <p>{snapshot.primaryBody}</p>
-          <div className="mission-evidence" aria-label="经营判断依据">
-            {preOpen ? <>
-              <span><small>昨日晚市</small><b>少32位</b></span>
-              <span><small>今晚预约</small><b>少11桌</b></span>
-              <span><small>预计缺口</small><b>¥8,000</b></span>
-            </> : <>
+        <div className="priority-heading"><h2>{preOpen ? "今天第一步" : "现在最重要"}</h2><span>{preOpen ? "08:45开始" : `${snapshot.label} · AI已排好`}</span></div>
+        <article className={`coach-callout priority-mission-card ${preOpen ? "preopen-mission" : ""}`}>
+          <div className="mission-kicker"><span><MagicWandIcon /> {preOpen ? "AI已准备好晨会重点" : "AI区域经理判断"}</span><em>{preOpen ? "3分钟" : "现在做"}</em></div>
+          <h2>{preOpen ? "开个短晨会，把晚市目标讲清楚" : snapshot.headline}</h2>
+          <p>{preOpen ? "你只要说重点，AI会自动整理成行动并分给当班负责人。" : snapshot.primaryBody}</p>
+          {preOpen ? <div className="meeting-action-note"><ClockIcon /><span><b>晨会结束，自动生成5项行动</b><small>责任人、时间和回传方式都会补齐</small></span></div> : <div className="mission-evidence" aria-label="经营判断依据">
               <span><small>当前还差</small><b>{snapshot.gap.tables}桌</b></span>
               <span><small>换算顾客</small><b>{snapshot.gap.guests}位</b></span>
               <span><small>AI判断</small><b>92%</b></span>
-            </>}
-          </div>
+          </div>}
           <button className="primary-action" type="button" onClick={primaryAction}>{snapshot.primaryTitle}<ChevronRightIcon /></button>
           <small className="mission-result"><StarFilledIcon /> 做完后，AI会重新预测并安排下一项</small>
         </article>
@@ -509,20 +503,14 @@ function TodayScreen({ flow }: { flow: FlowControls }) {
 }
 
 function PreOpenBrief({ snapshot, onCalculation }: { snapshot: ReturnType<typeof getDisplaySnapshot>; onCalculation: () => void }) {
-  return <section className="preopen-brief">
-    <div className="brief-heading"><span>昨日复盘 + 今日预测</span><em>AI已总结 · 08:30更新</em></div>
-    <div className="brief-topline">
-      <div><small>昨日营业</small><strong>{formatMoney(yesterdayReview.actualRevenue)}</strong><em>目标完成98.6%</em></div>
-      <span className="brief-arrow"><ChevronRightIcon /></span>
-      <div><small>今日预计</small><strong className="danger">{formatMoney(snapshot.forecastRevenue)}</strong><em>目标 {formatMoney(snapshot.targetRevenue)}</em></div>
-    </div>
-    <div className="brief-signals">
-      <p className="good"><CheckCircledIcon /><span><small>做得好</small><b>每桌平均比上周多消费 ¥18</b></span></p>
-      <p className="watch"><ExclamationTriangleIcon /><span><small>要关注</small><b>18点后比正常少来 32 位顾客</b></span></p>
-    </div>
-    <div className="brief-gap">
-      <span><small>今天预计还差</small><strong>约 {snapshot.gap.tables} 桌</strong></span>
-      <b>{snapshot.gap.guests} 位顾客</b>
+  return <section className="morning-brief">
+    <div className="morning-brief-top"><span><MagicWandIcon /> AI晨间简报</span><em>今天有风险</em></div>
+    <p className="morning-recap">昨天 <b>{formatMoney(yesterdayReview.actualRevenue)}</b>，基本达标；今天预计 <b>{formatMoney(snapshot.forecastRevenue)}</b>。</p>
+    <h2>真正要补的，是晚市约 {snapshot.gap.guests} 位顾客</h2>
+    <p className="morning-judgment">每桌消费正常，问题是晚市比正常少来 32 位顾客。</p>
+    <div className="morning-conversion">
+      <PersonIcon />
+      <span>约 <b>{snapshot.gap.tables} 桌</b>；不行动预计少完成 <b>¥8,000</b></span>
       <button type="button" onClick={onCalculation} aria-label="为什么这样计算"><InfoCircledIcon /></button>
     </div>
   </section>;

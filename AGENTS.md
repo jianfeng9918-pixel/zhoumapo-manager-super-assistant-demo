@@ -80,3 +80,14 @@ When any text-entry control loses focus, dismiss the simulated keyboard. If the 
 - All business data is fictional and must remain visibly labeled as demo data. Do not add real integrations, authentication, or production credentials in V2.
 - The experience is free exploration rather than a forced walkthrough. Every visible core CTA must either advance a workflow, change visible state, or explain why it cannot proceed.
 - The five core closed loops are morning meeting, procurement, HR assessment, sold-out/channel sync, and self-claimed growth actions. Persist demo progress locally and keep a reset control available.
+
+## 周麻婆 V3 Product Decisions
+
+- V3 keeps the V2 visual source and direct mobile runtime, then upgrades the product from a manager-only tool into an AI shift supervisor with manager/regional-manager linkage.
+- The default state is `08:50` and the primary manager journey advances through morning meeting, lunch inspection, afternoon diagnosis, pre-dinner correction, dinner inventory protection, and closing review. “我的” must keep a demo phase switch for fast QA.
+- Manager and regional-manager state share one deterministic mock model in `src/demo-model.ts`; V3 uses only `zhoumapo-manager-assistant-v3` and must not read or overwrite V2 progress.
+- The manager is `黄店长 · 三盛广场演示店`; the regional manager is `林阳 · 区域经理`. Formal permissions remain future work; the role switch is explicitly an in-demo control.
+- A cross-role task is not complete until it can be issued by the region, accepted/executed by the manager, returned with evidence, and approved or rejected for another photo. Help requests and regional replies must also synchronize across roles.
+- Keep one visually dominant action at a time. Business figures must distinguish current revenue, gap to target, forecast revenue, and forecast gap. Completing a revenue correction changes the forecast and health score without falsely changing current revenue.
+- Six-dimensional health uses traffic 15%, conversion 15%, ticket 25%, rating 15%, cost 15%, and people 15%. Each health card must lead to causes, data source/update time, confidence, impact, action, effort, and recheck time.
+- All stores, money, people, reviews, inventory, channel sync, AI conclusions, and expected impacts remain conspicuously labeled demo data. AI does not punish employees, make payments, or claim that a real platform has synchronized.

@@ -1,51 +1,90 @@
-# 周麻婆店长超级助手 V3｜AI值班长与双角色联动 Design QA
+# V4 Design QA
 
-## 验收基准
+## Comparison metadata
 
-- 视觉源：`/Users/huangjianfeng/.codex/generated_images/019fec0e-7b89-7482-862c-43bfb9adc957/exec-ac6b02ee-1f5a-4ec4-a4a6-e4481ea0c765.png`。
-- 同视口对比：视觉源与实现首页均归一到 `393 × 852`，并在同一张并排图中核验。
-- 交互页面：动态首页、任务地图、六维诊断、晨会完整度、统一结果页、区域总览与跨角色任务。
-- 响应宽度：`320 × 720`、`393 × 852`、`412 × 915`；移动运行框架另含 Pixel 视口测试。
-- 所有业务数据显著标注“演示数据”。
+- source visual truth path: `/Users/huangjianfeng/.codex/generated_images/019fec0e-7b89-7482-862c-43bfb9adc957/exec-ac6b02ee-1f5a-4ec4-a4a6-e4481ea0c765.png`
+- browser-rendered implementation screenshot: `/tmp/zhoumapo-v4-redesign-pass2-393x852.png`
+- final browser-rendered implementation screenshot: `/tmp/zhoumapo-v4-final-home-393x852.png`
+- full-view comparison evidence: `/tmp/zhoumapo-v4-redesign-comparison.png`
+- viewport: `393 × 852 CSS px`
+- measured app screen: `393 × 852 CSS px`, `data-presentation="direct"`, no horizontal overflow
+- source pixels: `853 × 1844`
+- implementation pixels: `393 × 852`
+- density normalization: source was proportionally fitted to `393 × 852`; implementation was captured at the app screen's native `393 × 852` CSS size with device scale factor 1
+- state: 黄店长 · 三盛广场演示店 · 8月11日 · 08:30营业前 · 初始演示状态
 
-## 视觉对比结论
+## Findings
 
-- 首页延续参考图的白底、暖红主动作、金色成长、绿色完成、圆角卡片、轻阴影和五栏底部导航，没有切换成后台式密集布局。
-- 品牌、问候、经营数字、健康值和唯一主行动保持与参考图相同的信息优先级；V3把参考图时间线升级为可跳转的全天时段条和任务地图。
-- 当前完成、离目标差额、预计收官、预测缺口四个口径在同一卡片内明确分开，避免两个“差额”的语义冲突。
-- 核心页面均保持一个明显红色主按钮；次级、重做和求助按钮层级清楚。
-- 图标统一使用现有 Radix 图标；品牌 logo 与任务照片沿用真实项目资产，没有使用 emoji、手绘 SVG、CSS 插画或占位图替代。
+- No actionable P0, P1, or P2 findings remain.
+- [P3] The source shows a mid-day live-operation state while V4 deliberately opens in a pre-business state. The visual hierarchy is compared rather than the literal metrics: brand header, compact operating report, day rhythm, one dominant red action, and fixed bottom navigation remain aligned.
+- [P3] V4 removes the source's growth badge from the home header. This is intentional product scope: growth evidence is shown after operating results and in “我的”, so it does not compete with the day's main action.
 
-## 页面与状态核验
+## Required fidelity surfaces
 
-- 任务地图：五节点主线、六类来源、责任人、截止、证据、催办、经营贡献和成长值可读，当前节点的视觉优先级明确。
-- 六维诊断：分数、异常、原因链、数据来源、置信度、影响、难度、耗时和复查时间完整；主按钮直接进入行动。
-- 晨会：语音波形、实时提取、82分完整度、差评漏项、冲突检查、回执和结果页均有独立可视状态。
-- 拍照巡检：照片识别、整改任务、前后对比、AI复验和求助入口完整。
-- 结果页：完成证据、经营影响、成长值、复查时间、下一项、重做和求助统一呈现。
-- 区域端：总览、6店风险、首要行动、任务验收、退回补拍、求助回复与角色切换均沿用同一视觉语言。
-- 收官：目标/预测/实际、三条短结论、明日任务和日报反馈层级清楚。
+- Fonts and typography: system CJK typography keeps the source's strong black headline, red result figures, compact evidence text, and clear action hierarchy. No clipped or broken wrapping was found at 393px; automated overflow checks also passed at 320px and 412px.
+- Spacing and layout rhythm: the revised screen uses one compact report, one route strip, and one red mission card. The primary CTA is fully visible above the fixed navigation at the target viewport. Card radii, gaps, and elevation stay consistent with the confirmed white/warm-red mobile language.
+- Colors and visual tokens: warm red is reserved for the primary judgment and action; green and amber only encode “做得好/要关注”. White surfaces and subtle warm-gray borders match the source direction and avoid dashboard density.
+- Image quality and asset fidelity: the supplied Zhoumapo logo asset is used directly with correct aspect ratio and sharpness. Radix icons remain from one consistent family; no emoji, placeholder imagery, custom SVG art, or CSS-drawn brand assets were introduced.
+- Copy and content: data is translated into manager language—`25桌、65位顾客、少11桌预约`—and immediately connected to the next action. Current revenue and forecast revenue remain explicitly separated.
+- Accessibility and interaction: touch controls are at least 44px, semantic buttons/headings are present, a branded `focus-visible` style is defined, reduced-motion is supported, and console error/warning checks returned an empty list.
 
-## 本轮视觉修正
+## Full-view comparison evidence
 
-- 修正区域总览“查看三盛详情”的浏览器默认边框，使其回到轻量文字动作层级。
-- 修正异常门店健康徽标的状态文案，73分门店显示“异常”而不是固定显示“健康”。
-- 三盛门店区域列表改为读取当前演示时段的营业额，避免08:50仍显示16:20数据。
-- 为 `prefers-reduced-motion` 关闭数字、健康条、语音波形和AI光圈动画。
-- 所有新增主操作与列表操作保持至少44px触控区域；320/393/412宽度下 `body.scrollWidth` 等于视口宽度。
+The normalized side-by-side comparison shows that V4 retains the source's visual anchors while changing the business story from live KPI monitoring to pre-open coaching. The first implementation pass looked like stacked BI cards and hid the main CTA behind the navigation. The revised pass restores the source's action-led rhythm: compact report → time route → dominant red action → script timeline.
 
-## 交互与可访问性
+## Focused-region evidence
 
-- 23项自动化测试全部通过：15项V3业务场景 + 8项受保护移动运行框架场景。
-- 已覆盖早晨初始、时段推进、晨会、诊断联动、巡检、提醒、区域确认/退回、求助回复、收官、刷新保存、重置和响应宽度。
-- 页面使用语义按钮、标题、导航和图片替代文本；提醒和处理反馈有可读状态。
-- 应用内浏览器控制台无 error 或 warning。
+Separate implementation captures were inspected because the complete V4 story includes states not present in the single source visual:
 
-## 构建结论
+- `/tmp/zhoumapo-v4-tasks-393x852.png`: five-step script timeline, source/status labels, and action cards.
+- `/tmp/zhoumapo-v4-academy-393x852.png`: current-problem context, voice entry, one case, and three actions.
+- `/tmp/zhoumapo-v4-playbook-detail-393x852.png`: AI analysis, reason chain, complete time line, and sticky primary action.
+- `/tmp/zhoumapo-v4-meeting-result-393x852.png`: evidence, business result, manager growth, follow-up time, and next action.
 
-- `npm run check:runtime`：通过，28个受保护运行文件锁一致。
-- `npm run verify`：通过，TypeScript、Vite、Sites 4项测试和 GitHub Pages 子路径包均成功。
-- `npm run test:runtime`：通过，23/23。
-- 无 P0、P1、P2 阻断项，可发布到现有 GitHub Pages 链接。
+No additional source-region crop was required: at the normalized original comparison size, the logo, headline scale, report density, route, action card, CTA, and bottom navigation are all legible enough to judge without enlargement.
+
+## Comparison history
+
+### Pass 1 — blocked
+
+- Evidence: `/tmp/zhoumapo-v4-design-comparison.png`
+- [P1] The initial V4 home became a stack of generic analytics cards and lost the source's strong action timeline and dominant task card.
+- [P1] The primary “查看今日经营剧本” action was partially obscured by the fixed bottom navigation at `393 × 852`.
+- [P2] The judgment card had weak contrast and too much evidence before the action, making V4 feel more like BI than a manager operating console.
+
+Fixes made:
+
+- Combined yesterday review and today's forecast into one compact operating report.
+- Restored a horizontal day rhythm immediately below the report.
+- Rebuilt the AI judgment as a warm-red outlined mission card with one clear CTA.
+- Converted raw signals into three small action-evidence cells and moved secondary script steps below the CTA.
+- Reduced above-the-fold card height so the primary CTA clears the fixed navigation.
+
+### Pass 2 — passed
+
+- Evidence: `/tmp/zhoumapo-v4-redesign-comparison.png`
+- Post-fix result: the main action is visible, the screen has one visual focal point, operating data supports rather than dominates the action, and no P0/P1/P2 differences remain.
+
+## Primary interactions tested
+
+- Open today's script from the operating console.
+- Complete the six-step morning meeting and reach the unified result panel.
+- Navigate Today, Data, Tasks, Academy, and Mine.
+- Inspect data explanations, task timeline, knowledge-case action, and manager growth.
+- Verify console errors/warnings: none.
+- Automated runtime/business suite: 24 tests passed, including 320/393/412 widths, refresh persistence, reset, reduced-motion/runtime behavior, and cross-role workflow.
+
+## Implementation checklist
+
+- [x] Source and implementation opened and normalized.
+- [x] Main action visible at `393 × 852`.
+- [x] No horizontal overflow at `320`, `393`, or `412` widths.
+- [x] Typography, spacing, tokens, asset fidelity, copy, interactions, and accessibility reviewed.
+- [x] Browser console checked.
+- [x] P1/P2 issues from the first pass fixed and compared again.
+
+## Follow-up polish
+
+- If the product later receives real restaurant photography, the Academy case card could gain one restrained evidence thumbnail. The current demo intentionally avoids inventing imagery that is not in the supplied asset set.
 
 final result: passed

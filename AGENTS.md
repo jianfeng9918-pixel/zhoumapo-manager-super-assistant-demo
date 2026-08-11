@@ -91,3 +91,13 @@ When any text-entry control loses focus, dismiss the simulated keyboard. If the 
 - Keep one visually dominant action at a time. Business figures must distinguish current revenue, gap to target, forecast revenue, and forecast gap. Completing a revenue correction changes the forecast and health score without falsely changing current revenue.
 - Six-dimensional health uses traffic 15%, conversion 15%, ticket 25%, rating 15%, cost 15%, and people 15%. Each health card must lead to causes, data source/update time, confidence, impact, action, effort, and recheck time.
 - All stores, money, people, reviews, inventory, channel sync, AI conclusions, and expected impacts remain conspicuously labeled demo data. AI does not punish employees, make payments, or claim that a real platform has synchronized.
+
+## 周麻婆 V4 Product Decisions
+
+- V4 positions the product as the AI regional manager in an ordinary store manager's phone. The manager sees yesterday's result, today's forecast, the plain-language customer/table gap, the next action, and the result after action.
+- Remove store composite scores and six-dimension operational scoring from manager and regional surfaces. Translate gaps into guests, tables, orders, portions, and money with an explicit mock conversion basis.
+- Keep the manager bottom navigation labels `今日 / 数据 / 任务 / 学院 / 我的`, but redefine them as dynamic cockpit, business answers, operating playbook, contextual knowledge brain, and evidence-based growth.
+- The default V4 scene is `08:30` before opening. Do not show meaningless current-day revenue then; lead with yesterday's review and today's ¥8,000 forecast gap, translated as about 25 tables and 65 guests.
+- Huang is the only primary role. Regional manager Lin remains a secondary demo entry under `我的`, with cross-role issue, evidence review, rejection, and help reply using direct operating gaps rather than scores.
+- Procurement, HR, and sold-out are no longer home modules. They appear only as lightweight actions when a relevant operating problem occurs.
+- V4 uses only `zhoumapo-manager-assistant-v4` and must not read or overwrite V2/V3 progress. All figures, weather, members, reservations, evidence, channel results, and AI conclusions remain deterministic demo data.

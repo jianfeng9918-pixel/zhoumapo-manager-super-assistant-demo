@@ -7,6 +7,7 @@ import {
   BellIcon,
   CalendarIcon,
   CameraIcon,
+  ChatBubbleIcon,
   CubeIcon,
   CheckCircledIcon,
   ChevronRightIcon,
@@ -14,6 +15,7 @@ import {
   ClockIcon,
   FileTextIcon,
   DownloadIcon,
+  DashboardIcon,
   HomeIcon,
   IdCardIcon,
   InfoCircledIcon,
@@ -84,7 +86,7 @@ import {
 } from "../shared/ui";
 
 type StoreTab = "today" | "data" | "tasks" | "academy" | "mine";
-type TaskFilter = "all" | "required" | "ai" | "upstream" | "mine";
+type TaskFilter = "all" | "manager" | "front" | "kitchen" | "support";
 
 const tabs: TabDefinition<StoreTab>[] = [
   { id: "today", label: "今日", icon: HomeIcon },
@@ -451,39 +453,74 @@ function TasksScreen({ flow }: { flow: FlowControls }) {
     (item.id !== "regional-support" || item.released)
     && (!item.id.startsWith("product-") || item.released),
   );
-  const currentAction = visibleActions.find((item) => item.status !== "closed") ?? visibleActions.at(-1)!;
-  const nextAction = visibleActions.find((item) => item.time > currentAction.time && item.status !== "closed");
+  const isWorking = (item: ActionInstance) => ["inProgress", "pendingEvidence", "aiReview", "pendingHumanReview", "returned", "helpRequested"].includes(item.status);
+  const isWaiting = (item: ActionInstance) => ["aiSuggested", "pendingConfirmation"].includes(item.status);
+  const needsEvidence = (item: ActionInstance) => ["pendingEvidence", "returned"].includes(item.status);
+  const needsReview = (item: ActionInstance) => ["aiReview", "pendingHumanReview"].includes(item.status);
+  const workGroup = (item: ActionInstance): Exclude<TaskFilter, "all"> => {
+    if (item.owner === "黄店长") return "manager";
+    if (item.owner.includes("李主管")) return "front";
+    if (item.title.includes("鲜椒鸡")) return "kitchen";
+    return "support";
+  };
   const filterActions = visibleActions.filter((item) => {
-    if (filter === "required") return ["morning-meeting", "dinner-experience", "closing-review"].includes(item.id);
-    if (filter === "ai") return item.source === "AI建议";
-    if (filter === "upstream") return item.source !== "AI建议";
-    if (filter === "mine") return item.owner === "黄店长";
+    if (filter !== "all") return workGroup(item) === filter;
     return true;
   });
+  const owners = [
+    { id: "manager" as const, label: "我负责", owner: "黄店长", note: "晨会 · 现场 · 收官", icon: <PersonIcon /> },
+    { id: "front" as const, label: "前厅", owner: "李主管", note: "预约 · 顾客体验", icon: <ChatBubbleIcon /> },
+    { id: "support" as const, label: "会员运营", owner: "王小丽", note: "召回 · 回执", icon: <TargetIcon /> },
+    { id: "kitchen" as const, label: "后厨", owner: "当班厨师长", note: "菜品 · 出餐", icon: <CubeIcon /> },
+  ];
+  const countFor = (group: Exclude<TaskFilter, "all">) => visibleActions.filter((item) => workGroup(item) === group && item.status !== "closed").length;
+  const stageNodes = [
+    { time: "08:45", label: "开店准备", ids: ["morning-meeting"] },
+    { time: "12:00", label: "午市复查", ids: [] },
+    { time: "16:20", label: "晚市准备", ids: ["member-recall", "reservation-followup", "product-recommendation"] },
+    { time: "18:00", label: "高峰现场", ids: ["dinner-experience"] },
+    { time: "21:30", label: "收官复盘", ids: ["closing-review"] },
+  ];
   return (
     <>
-      <AppBrandHeader subtitle="今日经营剧本 · 动作跟着问题走" onNotifications={() => flow.push(notificationsScreen)} />
-      <div className="page-title-block compact-title-block"><span>当前行动</span><h1>先完成这一件</h1><p>其他行动等结果回来后再重新安排。</p></div>
-      <section className="current-action-focus">
-        <div><span>{currentAction.time}</span><StatusPill status={currentAction.status} /></div>
-        <h2>{currentAction.title}</h2>
-        <p>{currentAction.owner} · {currentAction.expectedImpact}</p>
-        <PrimaryButton onClick={() => flow.push(actionScreen(currentAction.id))}>进入当前行动</PrimaryButton>
-      </section>
+      <AppBrandHeader subtitle="今日工作台 · 分工、节点与回传" onNotifications={() => flow.push(notificationsScreen)} />
+      <div className="page-title-block compact-title-block v91-task-heading"><span>今天谁做什么</span><h1>工作分工一眼看清</h1><p>首页负责告诉你先做什么；这里负责分工、跟进和收结果。</p></div>
       <section className="v9-task-overview">
         <span><small>已完成</small><b>{visibleActions.filter((item) => item.status === "closed").length}</b></span>
-        <span><small>执行中</small><b>{visibleActions.filter((item) => ["inProgress", "pendingEvidence", "aiReview"].includes(item.status)).length}</b></span>
-        <span><small>待接收</small><b>{visibleActions.filter((item) => ["aiSuggested", "pendingConfirmation"].includes(item.status)).length}</b></span>
+        <span><small>执行中</small><b>{visibleActions.filter(isWorking).length}</b></span>
+        <span><small>待确认</small><b>{visibleActions.filter(isWaiting).length}</b></span>
       </section>
-      <HoldToTalk context="tasks" compact onResolved={setVoiceResult} />
+
+      <SectionHeading title="工作分工" meta="按负责人查看" />
+      <section className="v91-owner-board" aria-label="今日工作分工">
+        {owners.map((item) => <button type="button" key={item.id} className={filter === item.id ? "active" : ""} onClick={() => setFilter(filter === item.id ? "all" : item.id)}><i>{item.icon}</i><span><b>{item.label}</b><small>{item.owner}</small><em>{item.note}</em></span><strong>{countFor(item.id)}项</strong></button>)}
+      </section>
+
+      <SectionHeading title="营业关键节点" meta="按时间推进" />
+      <section className="v91-stage-map" aria-label="营业关键节点">
+        {stageNodes.map((node) => {
+          const nodeActions = visibleActions.filter((item) => node.ids.includes(item.id));
+          const done = nodeActions.length > 0 && nodeActions.every((item) => item.status === "closed");
+          const active = nodeActions.some((item) => item.status !== "closed") || (node.ids.length === 0 && state.operatingStage === "lunchReview");
+          const target = nodeActions.find((item) => item.status !== "closed") ?? nodeActions[0];
+          return <button type="button" key={node.time} className={done ? "done" : active ? "active" : ""} onClick={() => target ? flow.push(actionScreen(target.id)) : flow.push(lunchInspectionScreen)}><time>{node.time}</time><i>{done ? <CheckCircledIcon /> : <ClockIcon />}</i><span><b>{node.label}</b><small>{nodeActions.length ? `${nodeActions.length}项工作` : "现场复查"}</small></span></button>;
+        })}
+      </section>
+
+      <section className="v91-attention-board">
+        <button type="button" onClick={() => setFilter("all")}><DashboardIcon /><span><small>待回传</small><b>{visibleActions.filter(needsEvidence).length}项</b></span><ChevronRightIcon /></button>
+        <button type="button" onClick={() => setFilter("all")}><CheckCircledIcon /><span><small>待验收</small><b>{visibleActions.filter(needsReview).length}项</b></span><ChevronRightIcon /></button>
+      </section>
+
+      <div className="v91-task-voice"><HoldToTalk context="tasks" compact onResolved={setVoiceResult} /></div>
       {voiceResult ? <button type="button" className="inline-voice-answer" onClick={() => flow.push(memberRecallScreen)}><MagicWandIcon /><span><small>AI已预填，尚未下发</small><b>{voiceResult.summary}</b></span><ChevronRightIcon /></button> : null}
-      {nextAction ? <button type="button" className="next-action-preview" onClick={() => flow.push(actionScreen(nextAction.id))}><ClockIcon /><span><small>下一行动 · {nextAction.time}</small><b>{nextAction.title}</b></span><ChevronRightIcon /></button> : null}
+
       <SectionHeading title="全部工作" meta={`${visibleActions.filter((item) => item.status === "closed").length}/${visibleActions.length}已闭环`} />
       <div className="v9-task-filters" role="tablist" aria-label="任务筛选">
-        {([['all', '全部'], ['required', '必做'], ['ai', 'AI建议'], ['upstream', '上级下发'], ['mine', '我下发']] as const).map(([id, label]) => <button type="button" key={id} role="tab" aria-selected={filter === id} className={filter === id ? "active" : ""} onClick={() => setFilter(id)}>{label}</button>)}
+        {([['all', '全部'], ['manager', '我负责'], ['front', '前厅'], ['support', '会员运营'], ['kitchen', '后厨']] as const).map(([id, label]) => <button type="button" key={id} role="tab" aria-selected={filter === id} className={filter === id ? "active" : ""} onClick={() => setFilter(id)}>{label}</button>)}
       </div>
       <section className="playbook-progress collapsed-history">
-        {filterActions.map((item, index) => <button type="button" key={item.id} onClick={() => flow.push(actionScreen(item.id))} className={item.status === "closed" ? "done" : item.id === currentAction.id ? "current" : ""}><time>{item.time}</time><i>{item.status === "closed" ? <CheckCircledIcon /> : index + 1}</i><span><b>{item.title}</b><small>{item.owner} · {item.source} · {item.evidenceRequired[0]}</small></span><StatusPill status={item.status} /><ChevronRightIcon /></button>)}
+        {filterActions.map((item, index) => <button type="button" key={item.id} onClick={() => flow.push(actionScreen(item.id))} className={item.status === "closed" ? "done" : isWorking(item) ? "current" : ""}><time>{item.time}</time><i>{item.status === "closed" ? <CheckCircledIcon /> : index + 1}</i><span><b>{item.title}</b><small>{item.owner} · {item.method} · {item.evidenceRequired[0]}</small></span><StatusPill status={item.status} /><ChevronRightIcon /></button>)}
       </section>
       <button type="button" className="plain-wide-button" onClick={() => flow.push(playbookScreen)}>查看经营时间线与回执 <ChevronRightIcon /></button>
     </>

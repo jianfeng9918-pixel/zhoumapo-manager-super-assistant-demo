@@ -1037,6 +1037,7 @@ button {
 .hold-talk.is-holding .voice-mic-disc { background: rgb(255 255 255 / 17%); color: #fff; }
 .hold-talk.is-holding > button::after { display: none; }
 .hold-talk.cancel-armed > button { border-color: #3d3f45; background: #3d3f45; }
+.hold-talk:not(.is-holding) > button:active { border-color: #efc4bf; background: linear-gradient(180deg, #fff8f7, #f9eeec); transform: translateY(1px); }
 
 .v9-recent-reports { display: grid; margin-bottom: 10px; grid-template-columns: 1fr 1fr; gap: 7px; }
 .v9-recent-reports button { display: grid; min-height: 55px; padding: 8px; grid-template-columns: 28px minmax(0, 1fr) 12px; gap: 7px; align-items: center; border: 1px solid var(--final-line); border-radius: 13px; background: #fff; text-align: left; }
@@ -1054,6 +1055,56 @@ button {
 .v9-task-filters { display: flex; overflow-x: auto; margin: 2px 0 8px; gap: 6px; scrollbar-width: none; }
 .v9-task-filters button { flex: none; min-height: 44px; padding: 0 12px; border: 1px solid var(--final-line); border-radius: 999px; color: var(--final-muted); font-size: 9px; }
 .v9-task-filters button.active { border-color: #f2aaa2; background: var(--final-red-soft); color: var(--final-red); font-weight: 700; }
+
+/* V9.1 任务工作台：首页做判断，任务页负责分工、节点与结果回收 */
+.v91-task-heading { margin-bottom: 8px; }
+.v91-task-heading h1 { font-size: 21px; }
+.v91-task-heading p { max-width: 330px; }
+.v91-owner-board { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.v91-owner-board button { display: grid; min-height: 74px; padding: 8px; grid-template-columns: 31px minmax(0, 1fr) auto; gap: 7px; align-items: center; border: 1px solid var(--final-line); border-radius: 14px; background: #fff; color: var(--final-ink); text-align: left; box-shadow: 0 3px 10px rgb(54 35 23 / 4%); }
+.v91-owner-board button.active { border-color: #f0aaa3; background: var(--final-red-soft); }
+.v91-owner-board button > i { display: grid; width: 31px; height: 31px; place-items: center; border-radius: 10px; background: var(--final-ai-soft); color: var(--final-ai); font-style: normal; }
+.v91-owner-board button:nth-child(2) > i { background: var(--final-green-soft); color: var(--final-green); }
+.v91-owner-board button:nth-child(3) > i { background: var(--final-amber-soft); color: var(--final-amber); }
+.v91-owner-board button:nth-child(4) > i { background: var(--final-red-soft); color: var(--final-red); }
+.v91-owner-board svg { width: 16px; height: 16px; }
+.v91-owner-board b,.v91-owner-board small,.v91-owner-board em { display: block; }
+.v91-owner-board b { font-size: 10px; }
+.v91-owner-board small { margin-top: 2px; color: var(--final-muted); font-size: 8px; }
+.v91-owner-board em { overflow: hidden; margin-top: 3px; color: var(--final-soft-text); font-size: 7px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
+.v91-owner-board strong { align-self: start; padding: 4px 6px; border-radius: 999px; background: #f4f2f0; color: var(--final-muted); font-size: 8px; white-space: nowrap; }
+
+.v91-stage-map { display: grid; overflow: hidden; grid-template-columns: repeat(5, minmax(0, 1fr)); border: 1px solid var(--final-line); border-radius: 15px; background: #fff; box-shadow: var(--final-shadow-soft); }
+.v91-stage-map button { position: relative; display: flex; min-width: 0; min-height: 79px; padding: 8px 3px 6px; align-items: center; flex-direction: column; color: var(--final-muted); }
+.v91-stage-map button + button { border-left: 1px solid var(--final-line); }
+.v91-stage-map time { font-size: 8px; font-weight: 750; }
+.v91-stage-map i { display: grid; width: 24px; height: 24px; margin: 5px 0; place-items: center; border: 1px solid #dedad6; border-radius: 50%; background: #fff; font-style: normal; }
+.v91-stage-map svg { width: 13px; height: 13px; }
+.v91-stage-map b,.v91-stage-map small { display: block; overflow: hidden; max-width: 100%; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+.v91-stage-map b { color: var(--final-ink); font-size: 8px; }
+.v91-stage-map small { margin-top: 2px; font-size: 7px; }
+.v91-stage-map button.active { background: linear-gradient(180deg, #fff8f6, #fff); color: var(--final-red); }
+.v91-stage-map button.active i { border-color: var(--final-red); background: var(--final-red); color: #fff; }
+.v91-stage-map button.done { color: var(--final-green); }
+.v91-stage-map button.done i { border-color: var(--final-green); background: var(--final-green); color: #fff; }
+
+.v91-attention-board { display: grid; margin-top: 8px; grid-template-columns: 1fr 1fr; gap: 7px; }
+.v91-attention-board button { display: grid; min-height: 50px; padding: 6px 9px; grid-template-columns: 24px minmax(0, 1fr) 12px; gap: 7px; align-items: center; border: 1px solid var(--final-line); border-radius: 13px; background: #fff; text-align: left; }
+.v91-attention-board button > svg:first-child { color: var(--final-amber); }
+.v91-attention-board button:last-child > svg:first-child { color: var(--final-green); }
+.v91-attention-board small,.v91-attention-board b { display: block; }
+.v91-attention-board small { color: var(--final-muted); font-size: 8px; }
+.v91-attention-board b { margin-top: 2px; font-size: 11px; }
+.v91-attention-board button > svg:last-child { width: 12px; color: var(--final-soft-text); }
+.v91-task-voice { margin-top: 8px; }
+.v91-task-voice .hold-talk { margin-top: 0; }
+
+@media (max-width: 340px) {
+  .v91-owner-board { gap: 5px; }
+  .v91-owner-board button { grid-template-columns: 29px minmax(0, 1fr); }
+  .v91-owner-board strong { display: none; }
+  .v91-stage-map button { min-height: 74px; }
+}
 
 .v9-university-heading { margin: 2px 0 8px; }
 .v9-university-heading span { color: var(--final-ai); font-size: 10px; font-weight: 700; }

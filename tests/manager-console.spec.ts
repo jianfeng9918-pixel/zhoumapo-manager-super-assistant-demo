@@ -635,12 +635,13 @@ test("减少动态效果时停止长动画且核心交互仍可用", async ({ pa
   await expect(page.getByRole("button", { name: "帮我开晨会" })).toBeVisible();
 });
 
-test("V9长按350毫秒后语音转写只生成预填意图", async ({ page }) => {
+test("V9.1按下立即进入语音态且松开只生成预填意图", async ({ page }) => {
   await openDemo(page);
   const button = page.getByTestId("hold-to-talk-button-today");
   await button.dispatchEvent("pointerdown", { pointerId: 1, clientY: 500 });
-  await page.waitForTimeout(420);
-  await expect(page.getByText(/正在转写/)).toBeVisible();
+  await expect(page.getByText(/正在听你说/)).toBeVisible();
+  await expect(page.getByText(/松开发送/).first()).toBeVisible();
+  await page.waitForTimeout(220);
   await button.dispatchEvent("pointerup", { pointerId: 1, clientY: 500 });
   await waitForBusy(page);
   await expect(page.getByText(/准备开始08:45晨会/)).toBeVisible();
@@ -653,13 +654,28 @@ test("V9语音上滑取消不产生意图或正式动作", async ({ page }) => {
   await openDemo(page);
   const button = page.getByTestId("hold-to-talk-button-today");
   await button.dispatchEvent("pointerdown", { pointerId: 2, clientY: 600, isPrimary: true });
-  await page.waitForTimeout(420);
   await button.dispatchEvent("pointermove", { pointerId: 2, clientY: 520, isPrimary: true });
   await expect(page.getByText("松开取消").first()).toBeVisible();
   await button.dispatchEvent("pointerup", { pointerId: 2, clientY: 520, isPrimary: true });
   const state = await page.evaluate((key) => JSON.parse(window.localStorage.getItem(key)!), storageKey);
   expect(state.voiceSession.cancelled).toBe(true);
   expect(state.voiceSession.intent).toBeNull();
+});
+
+test("V9.1任务页用工作分工和营业节点承接执行而不重复首页主行动", async ({ page }) => {
+  await openDemo(page);
+  await page.getByRole("navigation", { name: "底部导航" }).getByRole("button", { name: /任务/ }).click();
+  await expect(page.getByRole("heading", { name: "工作分工一眼看清" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "先完成这一件" })).toHaveCount(0);
+  const ownerBoard = page.getByRole("region", { name: "今日工作分工" });
+  for (const label of ["我负责", "前厅", "会员运营", "后厨"]) await expect(ownerBoard.getByRole("button", { name: new RegExp(label) })).toBeVisible();
+  const stageMap = page.getByRole("region", { name: "营业关键节点" });
+  for (const label of ["开店准备", "午市复查", "晚市准备", "高峰现场", "收官复盘"]) await expect(stageMap.getByRole("button", { name: new RegExp(label) })).toBeVisible();
+  await expect(page.getByRole("button", { name: /待回传/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /待验收/ })).toBeVisible();
+  await ownerBoard.getByRole("button", { name: /会员运营/ }).click();
+  await expect(page.locator("main.store-page .playbook-progress").getByRole("button", { name: /王小丽/ })).toHaveCount(1);
+  await expect(page.locator("main.store-page .playbook-progress").getByRole("button", { name: /黄店长/ })).toHaveCount(0);
 });
 
 test("V9数据周期切换、语音问数和专题图片证据均可用", async ({ page }) => {

@@ -1,7 +1,7 @@
 {
   "name": "zhoumapo-manager-super-assistant-demo",
   "private": true,
-  "version": "0.9.0",
+  "version": "0.9.1",
   "type": "module",
   "scripts": {
     "check:runtime": "node scripts/check-mobile-runtime.mjs",

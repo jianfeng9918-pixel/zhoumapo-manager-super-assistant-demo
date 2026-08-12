@@ -33,11 +33,10 @@ export function HoldToTalk({
   const holdingRef = useRef(false);
   const cancelRef = useRef(false);
   const timer = useRef<number | null>(null);
-  const holdTimer = useRef<number | null>(null);
+  const skipClickRef = useRef(false);
 
   useEffect(() => () => {
     if (timer.current) window.clearInterval(timer.current);
-    if (holdTimer.current) window.clearTimeout(holdTimer.current);
   }, []);
 
   const setSession = (session: VoiceSession) => dispatch({ type: "setVoiceSession", session });
@@ -46,14 +45,13 @@ export function HoldToTalk({
     startY.current = clientY;
     cancelRef.current = false;
     setCancelArmed(false);
-    holdTimer.current = window.setTimeout(() => {
-      startedAt.current = Date.now();
-      holdingRef.current = true;
-      setHolding(true);
-      setElapsed(0);
-      timer.current = window.setInterval(() => setElapsed(Date.now() - startedAt.current), 100);
-      setSession({ id: `voice-${Date.now()}`, status: "holding", startedAt: Date.now(), durationMs: 0, transcript: fallbackPhrases[context][0], intent: null, confidence: 0, cancelled: false });
-    }, 350);
+    startedAt.current = Date.now();
+    holdingRef.current = true;
+    skipClickRef.current = false;
+    setHolding(true);
+    setElapsed(0);
+    timer.current = window.setInterval(() => setElapsed(Date.now() - startedAt.current), 100);
+    setSession({ id: `voice-${Date.now()}`, status: "holding", startedAt: Date.now(), durationMs: 0, transcript: fallbackPhrases[context][0], intent: null, confidence: 0, cancelled: false });
   };
 
   const resolve = async (transcript: string, durationMs: number) => {
@@ -66,14 +64,12 @@ export function HoldToTalk({
   };
 
   const finish = async () => {
-    if (holdTimer.current) window.clearTimeout(holdTimer.current);
-    holdTimer.current = null;
     if (!holdingRef.current) {
-      setSuggestions((value) => !value);
       return;
     }
     if (timer.current) window.clearInterval(timer.current);
     const durationMs = Date.now() - startedAt.current;
+    skipClickRef.current = true;
     holdingRef.current = false;
     setHolding(false);
     if (cancelRef.current) {
@@ -81,6 +77,11 @@ export function HoldToTalk({
       setCancelArmed(false);
       setSession({ ...state.voiceSession, status: "cancelled", durationMs, cancelled: true });
       showToast("已取消本次语音，不会产生任何操作");
+      return;
+    }
+    if (durationMs < 180) {
+      setSession({ ...state.voiceSession, status: "idle", startedAt: null, durationMs: 0, transcript: "", intent: null, confidence: 0, cancelled: false });
+      setSuggestions((value) => !value);
       return;
     }
     await resolve(fallbackPhrases[context][0], durationMs);
@@ -107,7 +108,7 @@ export function HoldToTalk({
       <button
         type="button"
         data-testid={`hold-to-talk-button-${context}`}
-        aria-label={holding ? "松开结束说话" : "按住说话；点击查看常用话术"}
+        aria-label={holding ? "松开结束说话" : "按住说话"}
         onPointerDown={(event) => {
           try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* synthetic keyboard/test pointers do not need capture */ }
           begin(event.clientY);
@@ -117,9 +118,16 @@ export function HoldToTalk({
         onPointerCancel={finish}
         onKeyDown={(event) => { if ((event.key === " " || event.key === "Enter") && !event.repeat) begin(0); }}
         onKeyUp={(event) => { if (event.key === " " || event.key === "Enter") finish(); }}
+        onClick={() => {
+          if (skipClickRef.current) {
+            skipClickRef.current = false;
+            return;
+          }
+          setSuggestions((value) => !value);
+        }}
       >
         <span className="voice-mic-disc"><SpeakerLoudIcon /></span>
-        <span>{holding ? (cancelArmed ? "松开取消" : "松开发送") : "按住说话"}<small>{holding ? `${(elapsed / 1000).toFixed(1)}秒 · 正在转写` : "按住350毫秒 · 上滑取消"}</small></span>
+        <span>{holding ? (cancelArmed ? "松开取消" : "正在听你说") : "按住说话"}<small>{holding ? `${(elapsed / 1000).toFixed(1)}秒 · 松开发送` : "按下立即说 · 上滑取消"}</small></span>
         {holding ? <i className="voice-wave" aria-hidden="true">{Array.from({ length: 7 }, (_, index) => <b key={index} />)}</i> : null}
       </button>
       {suggestions ? <div className="voice-suggestions">{fallbackPhrases[context].map((phrase) => <button type="button" key={phrase} onClick={() => choose(phrase)}><CheckCircledIcon />{phrase}</button>)}</div> : null}

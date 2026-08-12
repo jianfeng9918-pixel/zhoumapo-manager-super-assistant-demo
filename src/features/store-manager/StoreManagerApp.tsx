@@ -44,8 +44,11 @@ import type {
   ReportExport,
   ReportId,
   ReportQuestionId,
+  VisualReport,
+  VoiceResolution,
 } from "../../domain/types";
 import { useOperatingOS } from "../shared/OperatingOSProvider";
+import { HoldToTalk } from "../shared/HoldToTalk";
 import {
   AIWorking,
   AppBrandHeader,
@@ -185,7 +188,20 @@ function StoreRoot({
 
 function TodayScreen({ flow }: { flow: FlowControls }) {
   const { state } = useOperatingOS();
+  const [voiceResult, setVoiceResult] = useState<VoiceResolution | null>(null);
   const snapshot = getCurrentSnapshot(state);
+  const live = state.liveFrame.stage === state.operatingStage ? state.liveFrame : {
+    ...state.liveFrame,
+    stage: state.operatingStage,
+    time: snapshot.time,
+    actualRevenue: state.brief.currentRevenue,
+    expectedRevenueNow: state.brief.expectedRevenueNow,
+    forecastRevenue: state.brief.forecastRevenue,
+    guestGap: state.brief.forecastGuestGap,
+    tableGap: state.brief.forecastTableGap,
+    judgment: state.brief.judgment,
+    nextRecheckAt: state.brief.nextRecheckAt,
+  };
   const meeting = getAction(state, "morning-meeting")!;
   const recall = getAction(state, "member-recall")!;
   const reservation = getAction(state, "reservation-followup")!;
@@ -213,7 +229,7 @@ function TodayScreen({ flow }: { flow: FlowControls }) {
   return (
     <>
       <AppBrandHeader
-        subtitle={`${state.brief.storeName} · ${state.brief.date} · ${snapshot.time}`}
+        subtitle={`${state.brief.storeName} · ${state.brief.date} · ${live.time}`}
         onNotifications={() => flow.push(notificationsScreen)}
       />
       <div className="store-greeting">
@@ -226,13 +242,15 @@ function TodayScreen({ flow }: { flow: FlowControls }) {
       <section className="ai-command-card" data-testid="primary-action-card">
         <div className="ai-card-identity">
           <img src="/assets/ai-regional-manager.png" alt="AI区域经理" draggable={false} />
-          <span><b>AI区域经理</b><small>基于经营数据 · 需人工确认</small></span>
+          <span><b>AI区域经理</b><small><i className="live-status-dot" />{live.freshnessLabel} · 需人工确认</small></span>
           <MagicWandIcon />
         </div>
-        <h2>{state.brief.judgment}</h2>
+        <h2>{live.judgment}</h2>
         {!isClosing ? (
-          <button type="button" className="evidence-summary v6-evidence-strip" onClick={() => flow.push(dataAnswerScreen)}>
-            {state.brief.evidence.slice(0, 3).map((item, index) => <span key={item} className={index === 0 ? "actual" : index === 1 ? "forecast" : "gap"}><small>{index === 0 ? "实际" : index === 1 ? "预测" : "差距"}</small><b>{item}</b></span>)}
+          <button type="button" className="evidence-summary v6-evidence-strip live-number-strip" onClick={() => flow.push(dataAnswerScreen)}>
+            <span className="actual"><small>{live.actualRevenue === null ? "昨日实际" : "当前实际"}</small><b>{live.actualRevenue === null ? "¥98,600" : money(live.actualRevenue)}</b></span>
+            <span className="forecast"><small>{live.expectedRevenueNow ? "正常应到" : "预计收官"}</small><b>{live.expectedRevenueNow ? money(live.expectedRevenueNow) : money(live.forecastRevenue)}</b></span>
+            <span className="gap"><small>还差</small><b>{live.tableGap}桌 · {live.guestGap}位</b></span>
           </button>
         ) : (
           <div className="closing-summary-inline">
@@ -244,10 +262,22 @@ function TodayScreen({ flow }: { flow: FlowControls }) {
           <span>建议主行动</span>
           <div><h3>{primary.time} {primary.title}</h3><ActivityLogIcon /></div>
           <p>{primary.body}</p>
-          <PrimaryButton onClick={() => flow.push(primary.screen)}>{primary.label}</PrimaryButton>
+          {state.operatingStage === "morningBrief" ? (
+            <HoldToTalk context="today" compact onResolved={setVoiceResult} />
+          ) : <PrimaryButton onClick={() => flow.push(primary.screen)}>{primary.label}</PrimaryButton>}
+          {voiceResult ? (
+            <div className="voice-intent-preview">
+              <small>AI理解 · 置信度{voiceResult.confidence}%</small><b>{voiceResult.summary}</b>
+              <button type="button" onClick={() => flow.push(meetingScreen)}>{voiceResult.confirmationLabel}<ChevronRightIcon /></button>
+            </div>
+          ) : null}
           <HumanConfirmNote text={isClosing ? "确认后生成日报与明日第一件事" : state.operatingStage === "lunchReview" ? "照片仅用于演示识别，不上传真实平台" : state.operatingStage === "afternoonDecision" ? "确认后才启动晚市经营剧本" : state.operatingStage === "dinnerRecovery" ? "行动需人工确认，结果需证据验收" : "确认后才会下发到负责人"} />
         </div>
       </section>
+
+      {state.metricTransitions.some((item) => item.kind !== "actual") ? (
+        <div className="metric-change-ribbon"><LightningBoltIcon /><span><b>数字为什么变了</b><small>{state.metricTransitions[0].trigger}</small></span><em>实际营业未虚增</em></div>
+      ) : null}
 
       <section className="semantic-day-route" aria-label="今天经营路线">
         <button type="button" className={state.operatingStage === "lunchReview" ? "current opportunity" : "opportunity"} onClick={() => flow.push(lunchInspectionScreen)}><span><ClockIcon /></span><small>12:00</small><b>午市复查</b></button>
@@ -282,6 +312,8 @@ function TodayScreen({ flow }: { flow: FlowControls }) {
 function DataScreen({ flow }: { flow: FlowControls }) {
   const { state, adapters } = useOperatingOS();
   const [reports, setReports] = useState<OperatingReport[]>([]);
+  const [period, setPeriod] = useState<"today" | "sevenDay" | "month">("today");
+  const [voiceResult, setVoiceResult] = useState<VoiceResolution | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -293,27 +325,35 @@ function DataScreen({ flow }: { flow: FlowControls }) {
   const quickReports = reports.filter((item) => ["sevenDay", "month"].includes(item.id));
   const topics = reports.filter((item) => ["traffic", "product", "reputation", "member"].includes(item.id));
   const effect = reports.find((item) => item.id === "actionEffect");
+  const selected = reports.find((item) => item.id === period) ?? today;
   return (
     <>
       <AppBrandHeader subtitle="经营报告中心 · 经营结果可追溯" onNotifications={() => flow.push(notificationsScreen)} />
       <div className="report-center-title">
-        <span>AI已翻译经营数据</span>
-        <h1>先看结论，再看报表</h1>
-        <button type="button" onClick={() => flow.push(reportQuestionScreen)}><MagicWandIcon />直接问经营数据</button>
+        <span><i className="live-status-dot" />经营数据已更新</span>
+        <h1>会回答问题的经营数据</h1>
+        <button type="button" aria-label="直接问经营数据" onClick={() => flow.push(reportQuestionScreen)}><MagicWandIcon />继续追问</button>
       </div>
 
-      {today ? (
-        <button type="button" className="report-answer-hero" onClick={() => flow.push(reportDetailScreen("today"))}>
-          <span><TargetIcon />今天能不能达标？</span>
-          <h2>{today.conclusion}</h2>
+      <div className="report-period-tabs" role="tablist" aria-label="经营周期">
+        {([['today', '今日'], ['sevenDay', '7日'], ['month', '本月']] as const).map(([id, label]) => <button type="button" role="tab" aria-selected={period === id} className={period === id ? "active" : ""} key={id} onClick={() => setPeriod(id)}>{label}</button>)}
+      </div>
+
+      {selected ? (
+        <button type="button" className="report-answer-hero living-report-hero" onClick={() => flow.push(reportDetailScreen(selected.id))}>
+          <span><TargetIcon />{selected.question}</span>
+          <h2>{selected.conclusion}</h2>
           <div>
-            {today.evidence.map((item) => <span key={item.label} className={`tone-${item.tone}`}><small>{item.label}</small><b>{item.value}</b></span>)}
+            {selected.evidence.map((item) => <span key={item.label} className={`tone-${item.tone}`}><small>{item.label}</small><b>{item.value}</b></span>)}
           </div>
-          <p>查看完整判断、趋势与下一步 <ChevronRightIcon /></p>
+          <p><i className="data-pulse" />查看变化、原因与下一步 <ChevronRightIcon /></p>
         </button>
       ) : <AIWorking label="正在生成经营报告" />}
 
-      <SectionHeading title="经营周期报告" meta="结论 → 证据 → 行动" />
+      <HoldToTalk context="data" compact onResolved={setVoiceResult} />
+      {voiceResult ? <button type="button" className="inline-voice-answer" onClick={() => flow.push(reportDetailScreen("traffic"))}><MagicWandIcon /><span><small>“{voiceResult.transcript}”</small><b>{voiceResult.summary}</b></span><ChevronRightIcon /></button> : null}
+
+      <SectionHeading title="经营周期报告" meta="按需下钻" />
       <section className="period-report-list">
         {quickReports.map((report) => (
           <button type="button" key={report.id} onClick={() => flow.push(reportDetailScreen(report.id))}>
@@ -344,6 +384,7 @@ function DataScreen({ flow }: { flow: FlowControls }) {
 
 function TasksScreen({ flow }: { flow: FlowControls }) {
   const { state } = useOperatingOS();
+  const [voiceResult, setVoiceResult] = useState<VoiceResolution | null>(null);
   const visibleActions = state.actions.filter((item) =>
     (item.id !== "regional-support" || item.released)
     && (!item.id.startsWith("product-") || item.released),
@@ -360,6 +401,8 @@ function TasksScreen({ flow }: { flow: FlowControls }) {
         <p>{currentAction.owner} · {currentAction.expectedImpact}</p>
         <PrimaryButton onClick={() => flow.push(actionScreen(currentAction.id))}>进入当前行动</PrimaryButton>
       </section>
+      <HoldToTalk context="tasks" compact onResolved={setVoiceResult} />
+      {voiceResult ? <button type="button" className="inline-voice-answer" onClick={() => flow.push(memberRecallScreen)}><MagicWandIcon /><span><small>AI已预填，尚未下发</small><b>{voiceResult.summary}</b></span><ChevronRightIcon /></button> : null}
       {nextAction ? <button type="button" className="next-action-preview" onClick={() => flow.push(actionScreen(nextAction.id))}><ClockIcon /><span><small>下一行动 · {nextAction.time}</small><b>{nextAction.title}</b></span><ChevronRightIcon /></button> : null}
       <SectionHeading title="今日经营时间线" meta={`${visibleActions.filter((item) => item.status === "closed").length}/${visibleActions.length}已闭环`} />
       <section className="playbook-progress collapsed-history">
@@ -375,6 +418,7 @@ function AcademyScreen({ flow }: { flow: FlowControls }) {
   const [topic, setTopic] = useState<KnowledgeTopic>("traffic");
   const [match, setMatch] = useState<Awaited<ReturnType<typeof adapters.knowledge.matchProblem>> | null>(null);
   const [currentCase, setCurrentCase] = useState<Awaited<ReturnType<typeof adapters.knowledge.matchCurrentCase>> | null>(null);
+  const [voiceResult, setVoiceResult] = useState<VoiceResolution | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -412,7 +456,8 @@ function AcademyScreen({ flow }: { flow: FlowControls }) {
           <PrimaryButton onClick={() => { showToast("已加入今日经营行动"); flow.push(playbookScreen); }}>加入今日行动</PrimaryButton>
         </section>
       ) : null}
-      <button type="button" className="voice-question-button" onClick={() => choose(topic)}><SpeakerLoudIcon />按住说出经营问题</button>
+      <HoldToTalk context="academy" onResolved={(result) => { setVoiceResult(result); if (result.targetId === "rating") choose("rating"); }} />
+      {voiceResult ? <div className="academy-voice-result"><MagicWandIcon /><span><small>已理解你的问题</small><b>{voiceResult.summary}</b></span></div> : null}
     </>
   );
 }
@@ -527,16 +572,15 @@ function reportIcon(id: ReportId) {
 
 function ReportDetailScreen({ flow, reportId }: { flow: FlowControls; reportId: ReportId }) {
   const { state, dispatch, adapters, run, approval, showToast } = useOperatingOS();
-  const [report, setReport] = useState<OperatingReport | null>(null);
+  const [report, setReport] = useState<VisualReport | null>(null);
 
   useEffect(() => {
     let active = true;
-    adapters.reporting.getReport(reportId, "store", state).then((item) => active && setReport(item));
+    adapters.reporting.getVisualReport(reportId, "store", state).then((item) => active && setReport(item));
     return () => { active = false; };
   }, [adapters, reportId, state.operatingStage, state.brief.forecastRevenue, state.actionEffects]);
 
   if (!report) return <MobileScroll className="final-scroll"><main className="final-detail-page"><AIWorking label="核对经营数据 → 生成经营结论" /></main></MobileScroll>;
-  const maximum = Math.max(...report.series.map((item) => Math.max(item.value, item.benchmark ?? 0)), 1);
   const actionItem = report.recommendedActionId ? getAction(state, report.recommendedActionId) : undefined;
   const addAction = async () => {
     if (!report.recommendedActionId || !actionItem) return;
@@ -562,20 +606,28 @@ function ReportDetailScreen({ flow, reportId }: { flow: FlowControls; reportId: 
           <p><strong>{report.hero.value}</strong><span>{report.hero.label}<small>{report.hero.note}</small></span></p>
         </section>
 
+        {report.media ? (
+          <figure className="report-story-media">
+            <img src={report.media.src} alt={report.media.alt} draggable={false} />
+            <figcaption><span>{report.media.demo ? "演示场景" : "经营证据"}</span>{report.media.source}</figcaption>
+          </figure>
+        ) : null}
+
         <section className="report-evidence-grid">
           {report.evidence.map((item) => <div key={item.label} className={`tone-${item.tone}`}><small>{item.label}</small><b>{item.value}</b><span>{item.note}</span></div>)}
         </section>
 
         <SectionHeading title="趋势与对照" meta={report.series[0]?.unit ? `单位：${report.series[0].unit}` : undefined} />
-        <section className="report-series-list">
-          {report.series.map((point) => (
-            <div key={point.label}>
-              <span><b>{point.label}</b><small>{point.value.toLocaleString("zh-CN")}{point.unit}</small></span>
-              <progress max={maximum} value={point.value} aria-label={`${point.label}${point.value}${point.unit}`} />
-              {point.benchmark !== undefined ? <em>参考 {point.benchmark.toLocaleString("zh-CN")}{point.unit}</em> : null}
+        <section className={`visual-report-chart mode-${report.visualMode}`} aria-label={`${report.title}趋势`}>
+          {report.segments.map((segment, index) => (
+            <div key={segment.label} className={`tone-${segment.tone}`}>
+              <span><b>{segment.label}</b><small>{segment.value}</small></span>
+              <i><em style={{ "--report-ratio": segment.ratio } as React.CSSProperties} /></i>
+              {report.series[index]?.benchmark !== undefined ? <strong>常态 {report.series[index].benchmark?.toLocaleString("zh-CN")}{report.series[index].unit}</strong> : null}
             </div>
           ))}
         </section>
+        <div className="report-change-note"><i className="data-pulse" /><span><b>变化来源</b><small>{report.changeNote}</small></span></div>
 
         <details className="report-reason-details">
           <summary>为什么这样判断 <span>置信度{report.confidence}%</span></summary>
@@ -689,10 +741,12 @@ function ActionEffectLedger({ flow }: { flow: FlowControls }) {
             <article key={item.id} className={effectStatusClass(item)}>
               <header><span>{item.verdict}</span><small>{item.executedAt}</small></header>
               <h2>{item.title}</h2><p>{item.problem} · {item.owner}</p>
-              <div className="effect-compare">
-                <span><small>预计影响</small><b>{item.expected.tables ? `${item.expected.tables}桌 · ${item.expected.guests}人` : "改善顾客体验"}</b><em>{item.expected.forecastLift ? `预计+¥${item.expected.forecastLift.toLocaleString("zh-CN")}` : "不承诺营业额"}</em></span>
-                <ChevronRightIcon />
-                <span><small>实际结果</small><b>{item.status === "verified" ? item.measured.tables ? `${item.measured.tables}桌 · ${item.measured.guests}人` : "问题未重复" : "等待复查"}</b><em>{item.measured.actualRevenue ? `实际+¥${item.measured.actualRevenue.toLocaleString("zh-CN")}` : "实际收入未计入"}</em></span>
+              <div className="effect-journey" aria-label="行动效果链">
+                <span><small>1 行动前</small><b>{item.problem}</b></span>
+                <span><small>2 执行</small><b>{item.title}</b></span>
+                <span><small>3 中间结果</small><b>{item.measured.tables ? `${item.measured.tables}桌 · ${item.measured.guests}人` : item.status === "forecast" ? "等待回传" : "已完成现场动作"}</b></span>
+                <span><small>4 实际验证</small><b>{item.measured.actualRevenue ? `实际+¥${item.measured.actualRevenue.toLocaleString("zh-CN")}` : item.status === "verified" ? "问题未重复" : "实际收入未计入"}</b></span>
+                <span><small>5 是否复用</small><b>{item.reusable ? "已证明可复用" : "证据不足，暂不复用"}</b></span>
               </div>
               <div className="effect-note"><FileTextIcon /><span>{item.measured.note}</span></div>
               <footer><small>{item.source}</small><b>{item.reusable ? "可复用" : `${item.recheckAt}复查`}</b></footer>
@@ -739,7 +793,7 @@ function LunchInspectionFlow({ flow }: { flow: FlowControls }) {
   const [captured, setCaptured] = useState(Boolean(proof));
   const inspect = async () => {
     await run("核对现场照片 → 识别等菜问题", async () => {
-      const item = evidence("lunch-inspection", "photo", "午市现场已识别：前厅正常，传菜口等待偏久", "/assets/task-evidence.jpg");
+      const item = evidence("lunch-inspection", "photo", "午市现场已识别：前厅正常，传菜口等待偏久", "/assets/lunch-inspection-demo.png");
       item.aiResult = "passed";
       item.aiNote = "整洁度正常；人员到岗；传菜口等待风险需晚市复查。";
       item.inspected = { cleanliness: "整洁", staffing: "到岗", waitingRisk: "传菜口偏慢" };
@@ -753,7 +807,7 @@ function LunchInspectionFlow({ flow }: { flow: FlowControls }) {
     <MobileScroll className="final-scroll">
       <main className="final-detail-page">
         <section className="inspection-camera-card">
-          <img src="/assets/task-evidence.jpg" alt="午市现场演示照片" draggable={false} />
+          <div className="story-image-shell inspection-image-shell"><img src="/assets/lunch-inspection-demo.png" alt="店长在午市传菜口拍照巡检的演示场景" draggable={false} /><span>演示场景 · AI生成</span><i className="inspection-marker marker-one">传菜口</i><i className="inspection-marker marker-two">人员到岗</i></div>
           <div><span>12:00 · 午市现场</span><h1>{captured ? "AI已看完这张照片" : "拍一张，AI替你完成巡检"}</h1><p>无需填写卫生、人员和等菜检查表。</p></div>
         </section>
         {captured ? <section className="inspection-findings"><div className="good"><CheckCircledIcon /><span><small>桌面与前厅</small><b>整洁</b></span></div><div className="good"><CheckCircledIcon /><span><small>人员到岗</small><b>正常</b></span></div><div className="warning"><ClockIcon /><span><small>需要关注</small><b>传菜口等待偏久</b></span></div></section> : null}
@@ -797,10 +851,8 @@ function MorningMeetingFlow({ flow }: { flow: FlowControls }) {
         {stage === 0 ? (
           <>
             <section className="meeting-start-card">
-              <SpeakerLoudIcon />
-              <span>08:45 · 晨会启动</span>
-              <h1>只讲清今天的顾客缺口和每个人的动作</h1>
-              <p>AI会实时转写、找漏项并预填负责人；你确认后才正式下发。</p>
+              <div className="story-image-shell meeting-image-shell"><img src="/assets/morning-briefing-demo.png" alt="店长与三位员工召开晨会的演示场景" draggable={false} /><span>演示场景 · AI生成</span></div>
+              <div className="meeting-start-copy"><span>08:45 · 晨会启动</span><h1>只讲清顾客缺口和每个人的动作</h1><p>AI转写、找漏项、预填负责人；确认后才下发。</p></div>
             </section>
             <div className="meeting-agenda">
               <span><b>1</b>今天晚市还需多来65位顾客</span>

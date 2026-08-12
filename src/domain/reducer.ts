@@ -6,6 +6,7 @@ import type {
   ReportId,
   RoleId,
   TerminalState,
+  VoiceSession,
 } from "./types";
 
 export type TerminalAction =
@@ -29,6 +30,7 @@ export type TerminalAction =
   | { type: "addNotification"; notification: TerminalState["notifications"][number] }
   | { type: "addReportAction"; reportId: ReportId; actionId: string; approval: ApprovalRecord }
   | { type: "createReportExport"; report: ReportExport; approval: ApprovalRecord }
+  | { type: "setVoiceSession"; session: VoiceSession }
   | { type: "completeReview"; approval: ApprovalRecord }
   | { type: "reset"; state: TerminalState };
 
@@ -71,6 +73,8 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
         meetingTranscript: action.transcript ?? state.meetingTranscript,
         meetingMissingItem: action.missingItem ?? state.meetingMissingItem,
       };
+    case "setVoiceSession":
+      return { ...state, voiceSession: action.session };
     case "completeLunchInspection":
       return applyStage({
         ...state,
@@ -604,10 +608,31 @@ function applyStage(state: TerminalState, stage: TerminalState["operatingStage"]
   const stageEvidence = recallOnly
     ? ["召回新增12桌 · 31位顾客", "预计收官升至 ¥95,800", "还差13桌 · 34位顾客"]
     : snapshot.evidence;
+  const transitions = state.gapProgress.recoveredGuests > 0
+    ? [
+        { id: "forecast-lift", label: "预计收官", before: 92000, after: forecastRevenue, unit: "元" as const, kind: "forecast" as const, trigger: "会员召回与预约跟进新增预约" },
+        { id: "guest-gap", label: "顾客缺口", before: 65, after: guestGap, unit: "位" as const, kind: "measured" as const, trigger: "预约结果已确认，实际到店仍待收官复查" },
+      ]
+    : [{ id: `live-${stage}`, label: "当前经营", before: snapshot.expectedRevenueNow, after: actualRevenue, unit: "元" as const, kind: "actual" as const, trigger: actualRevenue === null ? "营业前不展示实时收入" : "POS模拟数据刚刚更新" }];
   return {
     ...state,
     operatingStage: stage,
     operatingMoment: stageToMoment(stage),
+    liveFrame: {
+      stage,
+      time: snapshot.time,
+      updatedAt: `${snapshot.time}:00`,
+      freshnessLabel: snapshot.time === "08:30" ? "08:30已核对" : "刚刚更新",
+      actualRevenue,
+      expectedRevenueNow: snapshot.expectedRevenueNow,
+      forecastRevenue,
+      guestGap,
+      tableGap,
+      judgment: closingStage ? (fullOutcome ? "今天补回了晚市顾客，实际经营结果已经确认。" : "今天还有行动没有闭环，先按真实结果复盘。") : stageJudgment,
+      nextRecheckAt: stage === "completed" ? "明日08:40" : recallOnly ? "17:10" : snapshot.nextRecheckAt,
+      transitions,
+    },
+    metricTransitions: transitions,
     brief: {
       ...state.brief,
       currentRevenue: actualRevenue,

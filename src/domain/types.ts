@@ -26,6 +26,68 @@ export type OperatingSnapshot = {
   nextRecheckAt: string;
 };
 
+export type MetricTransition = {
+  id: string;
+  label: string;
+  before: number | null;
+  after: number | null;
+  unit: "元" | "桌" | "位" | "份" | "%";
+  kind: "actual" | "forecast" | "measured";
+  trigger: string;
+};
+
+export type LiveOperatingFrame = {
+  stage: OperatingStageId;
+  time: string;
+  updatedAt: string;
+  freshnessLabel: string;
+  actualRevenue: number | null;
+  expectedRevenueNow: number | null;
+  forecastRevenue: number;
+  guestGap: number;
+  tableGap: number;
+  judgment: string;
+  nextRecheckAt: string;
+  transitions: MetricTransition[];
+};
+
+export type VoiceIntent =
+  | "askBusiness"
+  | "startMeeting"
+  | "createAction"
+  | "submitEvidence"
+  | "requestHelp"
+  | "generateReport";
+
+export type VoiceSession = {
+  id: string;
+  status: "idle" | "holding" | "processing" | "ready" | "cancelled";
+  startedAt: number | null;
+  durationMs: number;
+  transcript: string;
+  intent: VoiceIntent | null;
+  confidence: number;
+  cancelled: boolean;
+};
+
+export type VoiceResolution = {
+  transcript: string;
+  intent: VoiceIntent;
+  confidence: number;
+  summary: string;
+  confirmationLabel: string;
+  targetId: string;
+};
+
+export type StoryMedia = {
+  id: string;
+  src: string;
+  alt: string;
+  usage: "meeting" | "inspection" | "product" | "knowledge" | "evidence";
+  source: string;
+  demo: boolean;
+};
+
 export type GapProgress = {
   initialGuests: number;
   initialTables: number;
@@ -330,6 +392,18 @@ export type OperatingReport = {
   recommendedActionTitle?: string;
 };
 
+export type VisualReport = OperatingReport & {
+  visualMode: "progress" | "bars" | "funnel" | "beforeAfter";
+  media?: StoryMedia;
+  changeNote: string;
+  segments: Array<{
+    label: string;
+    value: string;
+    ratio: number;
+    tone: ReportTone;
+  }>;
+};
+
 export type ReportQuestionId = "canReachTarget" | "whyGuestsLow" | "whichDish" | "whichActionWorked";
 
 export type ReportAnswer = {
@@ -389,7 +463,7 @@ export type AuditEvent = {
 };
 
 export type TerminalState = {
-  schemaVersion: 3;
+  schemaVersion: 4;
   role: RoleId;
   operatingMoment: OperatingMomentId;
   operatingStage: OperatingStageId;
@@ -413,6 +487,10 @@ export type TerminalState = {
   reports: OperatingReport[];
   actionEffects: ActionEffectRecord[];
   reportExports: ReportExport[];
+  liveFrame: LiveOperatingFrame;
+  metricTransitions: MetricTransition[];
+  storyMedia: StoryMedia[];
+  voiceSession: VoiceSession;
   dailyReview: DailyReview;
   meetingStage: 0 | 1 | 2 | 3 | 4;
   meetingTranscript: string[];

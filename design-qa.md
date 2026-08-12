@@ -1,84 +1,60 @@
-# V6 / V7 Design QA
+# V8 Design QA
 
-## V7 经营报告中心
+## Artifacts
 
-- Visual system source: V6 selected homepage visual and implemented tokens; no new design system introduced.
-- Tested views: store report center, report detail, action-effect ledger, regional report and HQ effect report.
-- Tested viewports: 320×852, 393×852, 412 wide and 427 wide via automated coverage.
-- Store report center keeps one AI conclusion card first, then compact period reports and topic rows. It does not add KPI matrices to the homepage.
-- Report detail uses one conclusion, three evidence facts, native progress trends, one expandable reason chain and one red primary action.
-- Action-effect ledger visually separates verified green, measuring amber and forecast neutral states; expected impact and actual revenue remain distinct.
-- 320px title wrapping was detected during visual inspection and corrected; final 320px viewport has no horizontal overflow or undersized touch targets.
-- In-app browser inspection confirmed 393×852 report detail has exactly one solid red primary button, no horizontal overflow, and 21px maximum report conclusion heading.
-- Status: passed locally; public V4 remains unchanged.
-
----
-
-## V6 homepage baseline
-
-- Source visual truth: `/Users/huangjianfeng/.codex/generated_images/019fec0e-7b89-7482-862c-43bfb9adc957/exec-fdc9be24-3063-4d05-ba50-2552e2952a34.png`
-- Normalized source: `audit/v6-visual/reference-393x852.jpg`
-- Implementation: `audit/v6-visual/implementation-08-30-393x852.png`
-- Additional states: `audit/v6-visual/implementation-12-00-393x852.png`, `audit/v6-visual/implementation-17-30-393x852.png`, `audit/v6-visual/implementation-21-30-393x852.png`
-- Viewport: 393 × 852 CSS px, deviceScaleFactor 1, direct mobile presentation
-- Source pixels: 853 × 1844; normalized to 393 × 852
-- Implementation pixels: 393 × 852
-- State: 店长08:30晨间简报；补充核验12:00、17:30、21:30
+- source visual truth: `/Users/huangjianfeng/.codex/generated_images/019fec0e-7b89-7482-862c-43bfb9adc957/exec-fdc9be24-3063-4d05-ba50-2552e2952a34.png`
+- implementation screenshot: `audit/v8-design-qa/implementation-393x852-pass2.png` (local QA artifact, intentionally excluded from release commit)
+- combined comparison: `audit/v8-design-qa/combined-pass2.png` (local QA artifact, intentionally excluded from release commit)
+- additional rendered states: `audit/v8-design-qa/data-393x852.png`, `audit/v8-design-qa/voice-393x852.png`, `audit/v8-design-qa/meeting-393x852.png`
+- viewport: `393 x 852` CSS px, device scale factor 1
+- source pixels: `853 x 1844`; normalized to `393 x 852`
+- implementation pixels: `393 x 852`
+- state: `08:30 · 黄店长 · 三盛广场演示店 · 全新V8本地存储`
 
 ## Full-view comparison evidence
 
-参考稿与实现同样采用：品牌头、自然问候、蓝紫AI判断主卡、三项经营证据、独立行动区、单一红色按钮、三节点语义路线、知识匹配条和五栏导航。实现有意删除参考稿的“机会度87%”，将空间让给店长可理解的经营证据。393×852首屏无需滚动即可看到主判断、主行动、路线和导航。
+The normalized source and second implementation capture were placed in one `786 x 852` comparison image. Both show, without scrolling: brand/date, manager greeting, AI judgment, three business facts, one dominant action, compact day route, knowledge context and five bottom tabs. The implementation intentionally removes the source's decorative opportunity score and folds judgment/evidence/action into one tighter card, as required by V8.
 
-## Focused region comparison evidence
+## Focused state evidence
 
-- AI主卡：实现保持蓝紫主表面和真实AI头像；文字字号缩到22–24px标题、14–15px正文范围，避免先前的大字与长篇幅。
-- 证据条：参考稿的昨日、预测、缺口三列在实现中保留，并分别使用中性、橙色、红色语义；未恢复数据矩阵。
-- 行动卡：参考稿独立暖红行动卡被合并进AI主卡下半段，以确保393×852内主行动和导航同时可见；仍保持清晰分隔与唯一实心红色按钮。
-- 路线与知识：橙色午市、绿色召回、蓝紫收官与知识匹配均使用标准图标库，无手绘SVG、emoji或CSS图形替代。
-- 图片：首页不使用菜品图；午市证据和知识页使用真实演示图片。爆炒鲜椒鸡图片已裁掉未经确认的“120天”口径。
+- Data screen: period switch, living conclusion card, voice entry, reports and persistent navigation were inspected at `393 x 852`.
+- Voice fallback: the two contextual phrases appear in a phone-scoped surface and do not hide the current report conclusion.
+- Morning meeting: generated scene image is sharp, correctly cropped, labelled `演示场景 · AI生成`, and the manual-confirmation action remains visually dominant.
+- No separate crop was needed for the home header because the 1:1 combined image keeps all logo, typography, data and button details readable.
 
-## Required fidelity surfaces
+## Findings and comparison history
 
-- Fonts and typography: 使用系统中文字体栈；标题24px以内，正文主要14–15px，卡片辅助文字缩小但保持对比。未发现标题截断、异常换行或字重冲突。
-- Spacing and layout rhythm: 18px页面边距、22px主卡圆角、8–12px模块间距；主卡、路线、知识条与底部导航分层明确。320、393、412、427宽度自动化无横向溢出。
-- Colors and tokens: 行动红 `#D83328`、AI蓝紫 `#5B57E8`、机会橙 `#F39A22`、结果绿 `#35A85B`；每个首页状态只突出主行动和当前时段语义。
-- Image quality: AI头像、品牌logo、现场证据和菜品裁图均为实际图片资产，使用object-fit避免拉伸，生产与Pages路径由测试覆盖。
-- Copy and content: 所有数字回答“所以呢”和“怎么办”；当前收入、正常进度、预测和动作影响分开。21:30未闭环状态明确显示真实未完成结果。
-- Icons: 使用Radix统一线性图标；尺寸与文字基线一致。
-- Accessibility: 核心触控区不小于44px；按钮有语义名称；图片有alt；支持prefers-reduced-motion。
+### Pass 1
 
-## Comparison history
+- [P2] Header and evidence typography were visibly smaller than the selected source.
+  - Evidence: first implementation capture used a 148px logo, 11px subtitle and 10px evidence values; the source placed more weight on brand and operational numbers.
+  - Fix: increased logo to 158px, subtitle to 12px, judgment to 20px, evidence labels to 10px and evidence values to 12px while preserving the 393x852 first-screen fit.
+- [P3] The V8 card is more compact than the source.
+  - Classification: intentional. V8 requires the same design genes but removes the decorative opportunity score and keeps the main action in the first screen.
 
-### Iteration 1
+### Pass 2
 
-- P1: 手动切到17:30仍显示“开晨会”，时段判断与主行动不一致。
-- P1: 21:30固定显示¥100,600，预测影响与真实结果混淆。
-- P2: 首屏只有暖红和白色，缺少AI、机会、结果的可扫读语义。
+- Fonts and typography: hierarchy now matches the source intent; line wrapping is controlled, app-specific Chinese copy remains readable, and no oversized V4-style title returns.
+- Spacing and layout rhythm: consistent 18px page margins, compact card rhythm, one primary action, and bottom navigation visible without scrolling.
+- Colors and visual tokens: action red, AI blue-purple, opportunity orange and result green are semantic; no health score or decorative multi-color dashboard appears.
+- Image quality and asset fidelity: brand and AI identity use existing assets; meeting/inspection/product imagery uses real raster assets with correct crop, source, alt text and demo labels. No fake SVG/CSS placeholder substitutes visible source imagery.
+- Copy and content: the screen directly answers what happened, what to do now and what requires confirmation; predicted and actual results remain separate.
+- Responsiveness/accessibility: automated checks pass at 320/393/412/427; visible controls remain at least 44px; reduced-motion behavior passes.
 
-Fixes: 新增经营阶段快照和自动推进；主行动按阶段选择；收官由已闭环动作和支持状态计算；引入蓝紫、橙、绿语义色。
+No actionable P0/P1/P2 differences remain. The remaining compactness difference is an intentional V8 product constraint and does not reduce the selected visual language.
 
-### Iteration 2
+## Primary interactions tested
 
-- P2: 午市主行动仍显示“确认后下发负责人”，与拍照巡检动作不符。
+- hold, release, upward cancel, click fallback and keyboard-compatible voice entry
+- morning meeting preview and manual confirmation boundary
+- today/7-day/month report switch, report drill-down and image evidence
+- lunch inspection image and AI annotation
+- store/region/headquarters shared state, evidence return and manual approval through automated acceptance tests
 
-Fix: 人工确认提示按当前行动动态切换，午市明确为演示图片识别，晚市区分行动确认与证据验收。
+## Browser and console
 
-Post-fix evidence: 08:30、12:00、17:30、21:30四张393×852截图；经营故事测试与8项手机运行框架测试通过。召回与预约跟进已拆为两次执行、两次AI初验和两次区域人工验收。
-
-## Findings
-
-没有剩余P0、P1或P2问题。
-
-P3 follow-up: 参考稿人物头像尺寸更大；实现为首屏密度和不同阶段文案预留空间而缩小。此差异属于有意的产品约束，不影响AI身份识别。
-
-## Implementation checklist
-
-- [x] 首屏唯一红色主按钮
-- [x] 三项经营证据
-- [x] 四类经营语义色
-- [x] 08:30至21:30状态与主行动一致
-- [x] 结果由动作闭环推导
-- [x] 320–427宽度和减少动态效果通过
-- [x] 真实图片无拉伸且口径边界明确
+- Browser-rendered evidence captured in the Codex in-app browser.
+- Browser console warnings/errors checked on home, data, voice and morning meeting states: none.
+- Protected mobile runtime check: passed.
 
 final result: passed

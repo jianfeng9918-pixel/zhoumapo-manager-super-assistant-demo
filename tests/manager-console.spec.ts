@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-const storageKey = "zhoumapo-manager-assistant-final-v3";
+const storageKey = "zhoumapo-manager-assistant-final-v4";
 
 async function openDemo(page: Page, width = 393, height = 852) {
   await page.setViewportSize({ width, height });
@@ -16,7 +16,10 @@ async function waitForBusy(page: Page) {
 }
 
 async function completeMeeting(page: Page) {
-  await page.getByRole("button", { name: "开始晨会", exact: true }).click();
+  await page.getByTestId("hold-to-talk-button-today").click();
+  await page.getByRole("button", { name: "帮我开晨会" }).click();
+  await waitForBusy(page);
+  await page.getByRole("button", { name: /确认进入晨会/ }).click();
   await page.getByRole("button", { name: "开始语音晨会" }).click();
   await expect(page.getByText("正在记录 · 01:36")).toBeVisible();
   await page.getByRole("button", { name: "结束并让AI整理" }).click();
@@ -118,16 +121,17 @@ async function approveRegionalAction(page: Page, actionName: RegExp) {
   await clickCurrentFlowButton(page, "确认这项闭环");
 }
 
-test("终局版首屏在393×852内同时出现判断、唯一主行动和五栏导航", async ({ page }) => {
+test("V8首屏在393×852内同时出现活判断、唯一主行动和五栏导航", async ({ page }) => {
   await openDemo(page);
   await expect(page.getByRole("heading", { name: "今天重点不是继续提客单，而是补回晚市顾客。" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "开始晨会", exact: true })).toBeVisible();
+  await expect(page.getByTestId("hold-to-talk-today")).toBeVisible();
+  await expect(page.getByText("08:30已核对")).toBeVisible();
   await expect(page.getByRole("region", { name: "今天经营路线" }).getByRole("button", { name: /12:00.*午市复查/ })).toBeVisible();
   await expect(page.locator(".v6-evidence-strip > span")).toHaveCount(3);
   for (const label of ["今日", "数据", "任务", "学院", "我的"]) {
     await expect(page.getByRole("button", { name: new RegExp(label) }).last()).toBeVisible();
   }
-  const primaryBox = await page.getByRole("button", { name: "开始晨会", exact: true }).boundingBox();
+  const primaryBox = await page.getByTestId("hold-to-talk-button-today").boundingBox();
   const navBox = await page.getByRole("navigation", { name: "底部导航" }).boundingBox();
   expect(primaryBox?.y).toBeLessThan(navBox?.y ?? 0);
 });
@@ -135,7 +139,8 @@ test("终局版首屏在393×852内同时出现判断、唯一主行动和五栏
 test("数据页是经营报告中心，可下钻今日、7日、本月和四个经营专题", async ({ page }) => {
   await openDemo(page);
   await page.getByRole("button", { name: "数据", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "先看结论，再看报表" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "会回答问题的经营数据" })).toBeVisible();
+  for (const label of ["今日", "7日", "本月"]) await expect(page.getByRole("tab", { name: label })).toBeVisible();
   await expect(page.getByRole("button", { name: /今天能不能达标/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /7日经营复盘/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /本月目标进度/ })).toBeVisible();
@@ -225,7 +230,7 @@ test("总部可从行动效果证据进入策略校准，AI不自动发布", asy
   await expect(page.getByRole("heading", { name: "晚市会员召回" })).toBeVisible();
 });
 
-test("V6首屏采用经营语义色并只出现一个实心红色主按钮", async ({ page }) => {
+test("V8首屏采用经营语义色并只出现一个实心红色主按钮", async ({ page }) => {
   await openDemo(page);
   const visual = await page.evaluate(() => {
     const primary = [...document.querySelectorAll<HTMLElement>("button")].filter((item) => {
@@ -284,7 +289,10 @@ test("店长日常主线不出现健康值、六维评分、订货或排班入�
 
 test("晨会在人工确认前只预生成，确认后才正式释放行动", async ({ page }) => {
   await openDemo(page);
-  await page.getByRole("button", { name: "开始晨会", exact: true }).click();
+  await page.getByTestId("hold-to-talk-button-today").click();
+  await page.getByRole("button", { name: "帮我开晨会" }).click();
+  await waitForBusy(page);
+  await page.getByRole("button", { name: /确认进入晨会/ }).click();
   await page.getByRole("button", { name: "开始语音晨会" }).click();
   await page.getByRole("button", { name: "结束并让AI整理" }).click();
   await waitForBusy(page);
@@ -605,6 +613,58 @@ test("减少动态效果时停止长动画且核心交互仍可用", async ({ pa
   await openDemo(page);
   const duration = await page.locator(".ai-card-identity > svg").evaluate((element) => getComputedStyle(element).animationDuration);
   expect(Number.parseFloat(duration)).toBeLessThan(0.01);
-  await page.getByRole("button", { name: "开始晨会", exact: true }).click();
-  await expect(page.getByRole("button", { name: "开始语音晨会" })).toBeVisible();
+  await page.getByTestId("hold-to-talk-button-today").click();
+  await expect(page.getByRole("button", { name: "帮我开晨会" })).toBeVisible();
+});
+
+test("V8长按350毫秒后语音转写只生成预填意图", async ({ page }) => {
+  await openDemo(page);
+  const button = page.getByTestId("hold-to-talk-button-today");
+  await button.dispatchEvent("pointerdown", { pointerId: 1, clientY: 500 });
+  await page.waitForTimeout(420);
+  await expect(page.getByText(/正在转写/)).toBeVisible();
+  await button.dispatchEvent("pointerup", { pointerId: 1, clientY: 500 });
+  await waitForBusy(page);
+  await expect(page.getByText(/准备开始08:45晨会/)).toBeVisible();
+  const state = await page.evaluate((key) => JSON.parse(window.localStorage.getItem(key)!), storageKey);
+  expect(state.voiceSession.intent).toBe("startMeeting");
+  expect(state.actions.find((item: { id: string }) => item.id === "member-recall").released).toBe(false);
+});
+
+test("V8语音上滑取消不产生意图或正式动作", async ({ page }) => {
+  await openDemo(page);
+  const button = page.getByTestId("hold-to-talk-button-today");
+  await button.dispatchEvent("pointerdown", { pointerId: 2, clientY: 600, isPrimary: true });
+  await page.waitForTimeout(420);
+  await button.dispatchEvent("pointermove", { pointerId: 2, clientY: 520, isPrimary: true });
+  await expect(page.getByText("松开取消").first()).toBeVisible();
+  await button.dispatchEvent("pointerup", { pointerId: 2, clientY: 520, isPrimary: true });
+  const state = await page.evaluate((key) => JSON.parse(window.localStorage.getItem(key)!), storageKey);
+  expect(state.voiceSession.cancelled).toBe(true);
+  expect(state.voiceSession.intent).toBeNull();
+});
+
+test("V8数据周期切换、语音问数和专题图片证据均可用", async ({ page }) => {
+  await openDemo(page);
+  await page.getByRole("button", { name: "数据", exact: true }).click();
+  await page.getByRole("tab", { name: "7日" }).click();
+  await expect(page.getByRole("button", { name: /最近一周.*最近7天晚市共少36桌/ })).toBeVisible();
+  await page.getByTestId("hold-to-talk-button-data").click();
+  await page.getByRole("button", { name: "今天为什么少顾客" }).click();
+  await waitForBusy(page);
+  await expect(page.getByText(/晚市预约少11桌是当前最大原因/)).toBeVisible();
+  await page.getByRole("button", { name: /菜品经营/ }).click();
+  await expect(page.locator(".report-story-media img")).toHaveAttribute("src", /explosive-chili-chicken\.png/);
+  await expect(page.getByText("演示场景")).toBeVisible();
+});
+
+test("V8中午巡检使用有来源的演示图并带AI标注", async ({ page }) => {
+  await openDemo(page);
+  await page.getByRole("button", { name: "我的", exact: true }).click();
+  await page.getByRole("button", { name: "12:00" }).click();
+  await page.getByRole("button", { name: "今日", exact: true }).click();
+  await page.getByRole("button", { name: "拍照复查" }).click();
+  await expect(page.locator(".inspection-image-shell img")).toHaveAttribute("src", /lunch-inspection-demo\.png/);
+  await expect(page.getByText("传菜口", { exact: true })).toBeVisible();
+  await expect(page.getByText("人员到岗", { exact: true })).toBeVisible();
 });

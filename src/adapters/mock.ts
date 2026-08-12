@@ -6,6 +6,7 @@ import type {
   Evidence,
   KnowledgeCase,
   MetricDefinition,
+  LiveOperatingFrame,
   OperatingReport,
   OperatingSnapshot,
   OperatingStageId,
@@ -15,6 +16,9 @@ import type {
   ReportQuestionId,
   ReportScope,
   TerminalState,
+  VisualReport,
+  VoiceResolution,
+  VoiceSession,
   WorkRequest,
 } from "../domain/types";
 import type {
@@ -25,6 +29,7 @@ import type {
   MeetingAnalysis,
   OperatingAdapters,
   ReportingAdapter,
+  VoiceInteractionAdapter,
   WorkflowAdapter,
 } from "./contracts";
 
@@ -496,6 +501,35 @@ const snapshots: OperatingSnapshot[] = [
   },
 ];
 
+function buildLiveFrame(stage: OperatingStageId, state: TerminalState): LiveOperatingFrame {
+  const snapshot = state.snapshots.find((item) => item.stage === stage) ?? state.snapshots[0];
+  const recovered = state.gapProgress.recoveredGuests > 0;
+  const actualRevenue = stage === "closingReview" || stage === "completed"
+    ? state.dailyReview.actualRevenue
+    : snapshot.currentRevenue;
+  const forecastRevenue = recovered ? state.brief.forecastRevenue : snapshot.forecastRevenue;
+  const transitions = recovered
+    ? [
+        { id: "forecast-lift", label: "预计收官", before: 92000, after: forecastRevenue, unit: "元" as const, kind: "forecast" as const, trigger: "会员召回与预约跟进新增19桌预约" },
+        { id: "guest-gap", label: "顾客缺口", before: 65, after: state.gapProgress.remainingGuests, unit: "位" as const, kind: "measured" as const, trigger: "已确认预约结果，实际到店待21:30复查" },
+      ]
+    : [{ id: `live-${stage}`, label: "当前经营", before: snapshot.expectedRevenueNow, after: snapshot.currentRevenue, unit: "元" as const, kind: "actual" as const, trigger: snapshot.currentRevenue === null ? "营业前不展示无意义实时收入" : "POS模拟数据刚刚更新" }];
+  return {
+    stage,
+    time: snapshot.time,
+    updatedAt: `${snapshot.time}:00`,
+    freshnessLabel: snapshot.time === "08:30" ? "08:30已核对" : "刚刚更新",
+    actualRevenue,
+    expectedRevenueNow: snapshot.expectedRevenueNow,
+    forecastRevenue,
+    guestGap: recovered ? state.gapProgress.remainingGuests : snapshot.guestGap,
+    tableGap: recovered ? state.gapProgress.remainingTables : snapshot.tableGap,
+    judgment: recovered ? state.brief.judgment : snapshot.judgment,
+    nextRecheckAt: state.brief.nextRecheckAt,
+    transitions,
+  };
+}
+
 const knowledgeCases: KnowledgeCase[] = [
   {
     id: "case-member-recall",
@@ -599,8 +633,8 @@ function action(
 }
 
 function createInitialState(): TerminalState {
-  return {
-    schemaVersion: 3,
+  const baseState = {
+    schemaVersion: 4 as const,
     role: "storeManager",
     operatingMoment: "preOpen",
     operatingStage: "morningBrief",
@@ -832,6 +866,15 @@ function createInitialState(): TerminalState {
     reports: storeReports,
     actionEffects: initialActionEffects,
     reportExports: [],
+    liveFrame: {} as LiveOperatingFrame,
+    metricTransitions: [],
+    storyMedia: [
+      { id: "media-meeting", src: "/assets/morning-briefing-demo.png", alt: "店长与三位员工召开晨会的演示场景", usage: "meeting" as const, source: "AI生成演示场景", demo: true },
+      { id: "media-inspection", src: "/assets/lunch-inspection-demo.png", alt: "店长在午市传菜口拍照巡检的演示场景", usage: "inspection" as const, source: "AI生成演示场景", demo: true },
+      { id: "media-product", src: "/assets/explosive-chili-chicken.png", alt: "爆炒鲜椒鸡演示菜品图", usage: "product" as const, source: "周麻婆演示菜品素材", demo: true },
+      { id: "media-service", src: "/assets/task-evidence.jpg", alt: "店员服务顾客的演示场景", usage: "knowledge" as const, source: "演示场景素材", demo: true },
+    ],
+    voiceSession: { id: "voice-idle", status: "idle" as const, startedAt: null, durationMs: 0, transcript: "", intent: null, confidence: 0, cancelled: false },
     dailyReview,
     meetingStage: 0,
     meetingTranscript: [],
@@ -840,6 +883,10 @@ function createInitialState(): TerminalState {
       { id: "audit-initial-1", time: "08:30", actor: "AI经营助手", event: "生成今日经营判断 v3.0", entityId: "decision-dinner-gap" },
     ],
   };
+  const initial = baseState as TerminalState;
+  initial.liveFrame = buildLiveFrame(initial.operatingStage, initial);
+  initial.metricTransitions = initial.liveFrame.transitions;
+  return initial;
 }
 
 class MockBusinessData implements BusinessDataAdapter {
@@ -860,6 +907,15 @@ class MockBusinessData implements BusinessDataAdapter {
   async getSnapshot(stage: OperatingStageId, state: TerminalState) {
     await pause(220);
     return state.snapshots.find((item) => item.stage === stage) ?? state.snapshots[0];
+  }
+
+  async getLiveFrame(stage: OperatingStageId, state: TerminalState) {
+    await pause(240);
+    return buildLiveFrame(stage, state);
+  }
+
+  subscribeLiveFrames(_listener: (frame: LiveOperatingFrame) => void) {
+    return () => undefined;
   }
 
   async buildClosingReview(state: TerminalState) {
@@ -1156,6 +1212,30 @@ class MockReporting implements ReportingAdapter {
     return reports.find((report) => report.id === reportId) ?? reports[0];
   }
 
+  async getVisualReport(reportId: ReportId, scope: ReportScope, state: TerminalState): Promise<VisualReport> {
+    await pause(360);
+    const reports = scopeReports(scope, state);
+    const report = reports.find((item) => item.id === reportId) ?? reports[0];
+    const maximum = Math.max(...report.series.map((item) => Math.max(item.value, item.benchmark ?? 0)), 1);
+    const media = report.id === "product"
+      ? state.storyMedia.find((item) => item.usage === "product")
+      : report.id === "reputation"
+        ? state.storyMedia.find((item) => item.usage === "inspection")
+        : undefined;
+    return {
+      ...report,
+      visualMode: report.id === "member" ? "funnel" : report.id === "actionEffect" ? "beforeAfter" : report.id === "today" || report.id === "month" ? "progress" : "bars",
+      media,
+      changeNote: state.gapProgress.recoveredGuests > 0 ? `行动后预计收官提升至¥${state.brief.forecastRevenue.toLocaleString("zh-CN")}，当前营业额未虚增` : `数据于${report.updatedAt}更新，下一次${report.recheckAt}复查`,
+      segments: report.series.map((point, index) => ({
+        label: point.label,
+        value: `${point.value.toLocaleString("zh-CN")}${point.unit}`,
+        ratio: Math.max(0.08, point.value / maximum),
+        tone: index === report.series.length - 1 ? report.hero.tone : "neutral",
+      })),
+    };
+  }
+
   async answerQuestion(questionId: ReportQuestionId, state: TerminalState) {
     await pause(720);
     const source = reportAnswers[questionId];
@@ -1189,12 +1269,27 @@ class MockReporting implements ReportingAdapter {
   }
 }
 
+const voiceByContext: Record<"today" | "data" | "tasks" | "academy", VoiceResolution> = {
+  today: { transcript: "帮我开晨会", intent: "startMeeting", confidence: 97, summary: "准备开始08:45晨会，AI将实时转写并预生成行动。", confirmationLabel: "确认进入晨会", targetId: "morning-meeting" },
+  data: { transcript: "今天为什么少顾客", intent: "askBusiness", confidence: 95, summary: "晚市预约少11桌是当前最大原因，不是客单价下降。", confirmationLabel: "查看经营答案", targetId: "traffic" },
+  tasks: { transcript: "把会员召回交给王小丽", intent: "createAction", confidence: 94, summary: "已预填16:20会员召回，负责人王小丽；确认后才进入执行。", confirmationLabel: "确认查看行动", targetId: "member-recall" },
+  academy: { transcript: "最近评分下降怎么办", intent: "askBusiness", confidence: 93, summary: "当前评分风险来自高峰等菜，已匹配周麻婆责任链案例。", confirmationLabel: "查看匹配方法", targetId: "rating" },
+};
+
+class MockVoiceInteraction implements VoiceInteractionAdapter {
+  async resolveIntent(session: VoiceSession, context: "today" | "data" | "tasks" | "academy") {
+    await pause(620);
+    return { ...voiceByContext[context], transcript: session.transcript || voiceByContext[context].transcript };
+  }
+}
+
 export const demoAdapters: OperatingAdapters = {
   business: new MockBusinessData(),
   workflow: new MockWorkflow(),
   decision: new MockDecisionEngine(),
   knowledge: new MockKnowledge(),
   reporting: new MockReporting(),
+  voice: new MockVoiceInteraction(),
 };
 
 export function freshDemoState() {

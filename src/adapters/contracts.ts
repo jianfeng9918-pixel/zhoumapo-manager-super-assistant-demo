@@ -6,6 +6,7 @@ import type {
   Evidence,
   KnowledgeCase,
   MetricDefinition,
+  LiveOperatingFrame,
   OperatingReport,
   OperatingSnapshot,
   OperatingStageId,
@@ -15,6 +16,9 @@ import type {
   ReportQuestionId,
   ReportScope,
   TerminalState,
+  VisualReport,
+  VoiceResolution,
+  VoiceSession,
   WorkRequest,
 } from "../domain/types";
 
@@ -38,6 +42,8 @@ export interface BusinessDataAdapter {
   getMetricDictionary(): Promise<MetricDefinition[]>;
   refreshSignals(): Promise<BusinessSignal[]>;
   getSnapshot(stage: OperatingStageId, state: TerminalState): Promise<OperatingSnapshot>;
+  getLiveFrame(stage: OperatingStageId, state: TerminalState): Promise<LiveOperatingFrame>;
+  subscribeLiveFrames(listener: (frame: LiveOperatingFrame) => void): () => void;
   buildClosingReview(state: TerminalState): Promise<DailyReview>;
 }
 
@@ -65,6 +71,7 @@ export interface KnowledgeAdapter {
 export interface ReportingAdapter {
   listReports(scope: ReportScope, state: TerminalState): Promise<OperatingReport[]>;
   getReport(reportId: ReportId, scope: ReportScope, state: TerminalState): Promise<OperatingReport>;
+  getVisualReport(reportId: ReportId, scope: ReportScope, state: TerminalState): Promise<VisualReport>;
   answerQuestion(questionId: ReportQuestionId, state: TerminalState): Promise<ReportAnswer>;
   generateExport(
     reportId: ReportId,
@@ -73,10 +80,15 @@ export interface ReportingAdapter {
   ): Promise<Omit<ReportExport, "id" | "createdBy" | "approvalRecordId">>;
 }
 
+export interface VoiceInteractionAdapter {
+  resolveIntent(session: VoiceSession, context: "today" | "data" | "tasks" | "academy"): Promise<VoiceResolution>;
+}
+
 export type OperatingAdapters = {
   business: BusinessDataAdapter;
   workflow: WorkflowAdapter;
   decision: DecisionEngineAdapter;
   knowledge: KnowledgeAdapter;
   reporting: ReportingAdapter;
+  voice: VoiceInteractionAdapter;
 };

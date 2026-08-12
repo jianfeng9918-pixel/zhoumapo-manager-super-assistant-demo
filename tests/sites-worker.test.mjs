@@ -67,7 +67,7 @@ test("emits the files required by Sites packaging", async () => {
   await access(new URL("../dist/.openai/hosting.json", import.meta.url));
 });
 
-test("emits V8 brand, AI, evidence, food and operating-scene assets", async () => {
+test("emits V9 brand, AI, evidence, food and operating-scene assets", async () => {
   for (const asset of [
     "zhoumapo-logo.png",
     "ai-regional-manager.png",

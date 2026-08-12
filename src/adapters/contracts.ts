@@ -4,7 +4,10 @@ import type {
   BusinessSignal,
   DailyReview,
   Evidence,
+  KnowledgeCase,
   MetricDefinition,
+  OperatingSnapshot,
+  OperatingStageId,
   TerminalState,
   WorkRequest,
 } from "../domain/types";
@@ -28,7 +31,8 @@ export interface BusinessDataAdapter {
   getInitialState(): TerminalState;
   getMetricDictionary(): Promise<MetricDefinition[]>;
   refreshSignals(): Promise<BusinessSignal[]>;
-  buildClosingReview(): Promise<DailyReview>;
+  getSnapshot(stage: OperatingStageId, state: TerminalState): Promise<OperatingSnapshot>;
+  buildClosingReview(state: TerminalState): Promise<DailyReview>;
 }
 
 export interface WorkflowAdapter {
@@ -42,10 +46,14 @@ export interface DecisionEngineAdapter {
   analyzeMeeting(): Promise<MeetingAnalysis>;
   inspectEvidence(evidence: Evidence): Promise<{ result: Evidence["aiResult"]; note: string }>;
   explainSignal(signal: BusinessSignal): Promise<{ summary: string; nextAction: string }>;
+  judgeStage(snapshot: OperatingSnapshot): Promise<{ judgment: string; nextAction: string }>;
+  recalculateGap(state: TerminalState): Promise<TerminalState["gapProgress"]>;
 }
 
 export interface KnowledgeAdapter {
   matchProblem(topic: "traffic" | "rating" | "people"): Promise<KnowledgeMatch>;
+  matchCurrentCase(state: TerminalState): Promise<KnowledgeCase>;
+  listCases(): Promise<KnowledgeCase[]>;
 }
 
 export type OperatingAdapters = {

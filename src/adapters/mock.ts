@@ -4,7 +4,10 @@ import type {
   BusinessSignal,
   DailyReview,
   Evidence,
+  KnowledgeCase,
   MetricDefinition,
+  OperatingSnapshot,
+  OperatingStageId,
   TerminalState,
   WorkRequest,
 } from "../domain/types";
@@ -106,11 +109,206 @@ const dailyReview: DailyReview = {
   ],
   tomorrowFirstAction: "08:40复盘会员召回到店率",
   generated: false,
+  outcome: "pending",
 };
+
+const snapshots: OperatingSnapshot[] = [
+  {
+    stage: "morningBrief",
+    time: "08:30",
+    currentRevenue: null,
+    expectedRevenueNow: null,
+    forecastRevenue: 92000,
+    actualRevenue: null,
+    guestGap: 65,
+    tableGap: 25,
+    judgment: "今天重点不是继续提客单，而是补回晚市顾客。",
+    evidence: ["昨日营业 ¥98,600", "今日预计 ¥92,000", "预计少25桌 · 65位顾客"],
+    nextRecheckAt: "12:00",
+  },
+  {
+    stage: "morningMeeting",
+    time: "08:45",
+    currentRevenue: null,
+    expectedRevenueNow: null,
+    forecastRevenue: 92000,
+    actualRevenue: null,
+    guestGap: 65,
+    tableGap: 25,
+    judgment: "先让每个人知道晚市还要补回多少顾客。",
+    evidence: ["目标缺口65位顾客", "预约少11桌", "3位负责人待确认"],
+    nextRecheckAt: "08:55",
+  },
+  {
+    stage: "lunchReview",
+    time: "12:00",
+    currentRevenue: 26800,
+    expectedRevenueNow: 30000,
+    forecastRevenue: 89000,
+    actualRevenue: null,
+    guestGap: 26,
+    tableGap: 10,
+    judgment: "午市比正常少10桌，先拍现场看看问题在哪。",
+    evidence: ["当前 ¥26,800", "正常应 ¥30,000", "少10桌 · 26位顾客"],
+    nextRecheckAt: "14:30",
+  },
+  {
+    stage: "afternoonDecision",
+    time: "14:30",
+    currentRevenue: 48600,
+    expectedRevenueNow: 48600,
+    forecastRevenue: 91000,
+    actualRevenue: null,
+    guestGap: 29,
+    tableGap: 11,
+    judgment: "晚市预约还少11桌，现在确认顾客追回剧本。",
+    evidence: ["当前 ¥48,600", "晚市预约少11桌", "预计收官 ¥91,000"],
+    nextRecheckAt: "16:20",
+  },
+  {
+    stage: "dinnerRecovery",
+    time: "17:30",
+    currentRevenue: 62000,
+    expectedRevenueNow: 70000,
+    forecastRevenue: 92000,
+    actualRevenue: null,
+    guestGap: 65,
+    tableGap: 25,
+    judgment: "现在不是提客单，是立即把晚市顾客追回来。",
+    evidence: ["当前 ¥62,000", "正常应 ¥70,000", "仍少25桌 · 65位顾客"],
+    nextRecheckAt: "18:30",
+  },
+  {
+    stage: "dinnerExperience",
+    time: "18:30",
+    currentRevenue: 62000,
+    expectedRevenueNow: 70000,
+    forecastRevenue: 98000,
+    actualRevenue: null,
+    guestGap: 16,
+    tableGap: 6,
+    judgment: "已经补回49位顾客，接下来守住体验并再补6桌。",
+    evidence: ["新增预约19桌", "预计升至 ¥98,000", "还差6桌 · 16位顾客"],
+    nextRecheckAt: "20:30",
+  },
+  {
+    stage: "closingReview",
+    time: "21:30",
+    currentRevenue: null,
+    expectedRevenueNow: null,
+    forecastRevenue: 98000,
+    actualRevenue: null,
+    guestGap: 0,
+    tableGap: 0,
+    judgment: "先核对真实收官，再判断哪些动作有效。",
+    evidence: ["目标 ¥100,000", "预测与实际分开", "未闭环事项转明日"],
+    nextRecheckAt: "明日08:40",
+  },
+  {
+    stage: "completed",
+    time: "21:35",
+    currentRevenue: 100600,
+    expectedRevenueNow: null,
+    forecastRevenue: 98000,
+    actualRevenue: 100600,
+    guestGap: 0,
+    tableGap: 0,
+    judgment: "今天有效补回了晚市顾客，明天复用有效方法。",
+    evidence: ["实际 ¥100,600", "目标达成100.6%", "明日08:40复盘到店率"],
+    nextRecheckAt: "明日08:40",
+  },
+];
+
+const knowledgeCases: KnowledgeCase[] = [
+  {
+    id: "case-member-recall",
+    topic: "traffic",
+    title: "会员不是名单，要能被找到和再次触达",
+    judgment: "今天顾客少，先召回近期到店会员，再追未确认预约。",
+    result: "演示案例：30分钟新增19桌预约、49位顾客。",
+    sourceType: "总部SOP",
+    sourceNote: "会员经营方法底稿 · 演示数据",
+    applicableStages: ["morningBrief", "afternoonDecision", "dinnerRecovery"],
+    applicableWhen: ["晚市顾客缺口超过30位", "会员池可触达超过100人"],
+    disabledWhen: ["门店承载能力不足", "会员当天已触达"],
+    evidenceRequired: ["触达人数", "新增预约", "实际到店"],
+    actions: ["筛选180位近期会员", "店长确认召回内容", "30分钟后追未确认预约"],
+    reviewStatus: "published",
+    version: 4,
+  },
+  {
+    id: "case-15-second-message",
+    topic: "people",
+    title: "高峰期15秒，只说顾客能马上听懂的价值",
+    judgment: "员工不要讲复杂权益，只讲一个到店理由和一个立即动作。",
+    result: "用于806储值与会员触达话术的短表达原则。",
+    sourceType: "总部SOP",
+    sourceNote: "周麻婆会员经营底稿 · 演示口径",
+    applicableStages: ["morningMeeting", "dinnerRecovery"],
+    applicableWhen: ["需要员工快速表达活动价值"],
+    disabledWhen: ["权益尚未经过总部确认"],
+    evidenceRequired: ["员工复述", "顾客反馈"],
+    actions: ["说清顾客得到什么", "说清今天为什么来", "说清下一步怎么做"],
+    reviewStatus: "published",
+    version: 1,
+  },
+  {
+    id: "case-chili-chicken",
+    topic: "product",
+    title: "爆炒鲜椒鸡：一句话让员工敢推荐",
+    judgment: "推荐菜不要背参数，先说口感、锅气和趁热吃。",
+    result: "保守话术：鲜椒提香、猛火现炒，锅气十足，趁热更香。",
+    sourceType: "总部SOP",
+    sourceNote: "菜品上菜话术复核稿；未经供应链确认的宣传口径已剔除",
+    applicableStages: ["morningMeeting", "dinnerExperience"],
+    applicableWhen: ["晚市需要重点菜推荐", "新人不会推荐"],
+    disabledWhen: ["供应链宣传口径未确认"],
+    evidenceRequired: ["员工复述", "顾客反馈"],
+    actions: ["示范一句保守话术", "新人现场复述", "晚市抽查3桌"],
+    reviewStatus: "pendingVerification",
+    version: 1,
+    imageUrl: "/assets/explosive-chili-chicken.png",
+    imageAlt: "爆炒鲜椒鸡演示菜品图",
+  },
+  {
+    id: "case-journey-waiting",
+    topic: "rating",
+    title: "等菜问题用一条责任链闭环",
+    judgment: "先找到发生在哪个触点，再明确动作、负责人和验收。",
+    result: "问题 → 动作 → 负责人 → 时间 → 验收，避免只说加强服务。",
+    sourceType: "历史复盘",
+    sourceNote: "周麻婆用户旅程课程底稿 · 演示数据",
+    applicableStages: ["lunchReview", "dinnerExperience"],
+    applicableWhen: ["3桌以上顾客反馈等待"],
+    disabledWhen: ["没有现场证据"],
+    evidenceRequired: ["现场照片", "问题区域", "整改后复查"],
+    actions: ["拍午市现场", "锁定问题触点", "18点前复查整改"],
+    reviewStatus: "published",
+    version: 2,
+    imageUrl: "/assets/task-evidence.jpg",
+    imageAlt: "门店顾客体验回传演示照片",
+  },
+  {
+    id: "case-regional-support",
+    topic: "support",
+    title: "门店资源不够时，带着完整经营上下文求助",
+    judgment: "先做门店能做的，再申请商场会员群或区域市场资源。",
+    result: "求助必须带缺口、已执行动作、需要资源和复查时间。",
+    sourceType: "优秀门店案例",
+    sourceNote: "区域市场协同复盘 · 演示数据",
+    applicableStages: ["dinnerRecovery"],
+    applicableWhen: ["门店行动不足以补回剩余缺口"],
+    disabledWhen: ["门店尚未执行基础行动"],
+    evidenceRequired: ["资源回复", "实际到店复查"],
+    actions: ["带入经营缺口", "说明门店已做什么", "由林阳人工确认支持"],
+    reviewStatus: "published",
+    version: 2,
+  },
+];
 
 function action(
   input: Pick<ActionInstance, "id" | "templateId" | "title" | "time" | "owner" | "source" | "method" | "dueAt" | "expectedImpact" | "evidenceRequired" | "recheckAt"> &
-    Partial<Pick<ActionInstance, "status" | "released">>,
+    Partial<Pick<ActionInstance, "status" | "released" | "impact">>,
 ): ActionInstance {
   return {
     ...input,
@@ -125,9 +323,21 @@ function action(
 
 function createInitialState(): TerminalState {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     role: "storeManager",
     operatingMoment: "preOpen",
+    operatingStage: "morningBrief",
+    snapshots,
+    gapProgress: {
+      initialGuests: 65,
+      initialTables: 25,
+      recoveredGuests: 0,
+      recoveredTables: 0,
+      remainingGuests: 65,
+      remainingTables: 25,
+      forecastBefore: 92000,
+      forecastAfter: 92000,
+    },
     activeTabs: { storeManager: "today", regionalManager: "today", headquarters: "today" },
     brief: {
       date: "8月11日",
@@ -141,8 +351,8 @@ function createInitialState(): TerminalState {
       forecastTableGap: 25,
       currentRevenue: null,
       expectedRevenueNow: null,
-      judgment: "今天不用继续提客单，晚市预计少65位顾客。",
-      evidence: ["昨天晚市少32位顾客", "今天预约少11桌"],
+      judgment: "今天重点不是继续提客单，而是补回晚市顾客。",
+      evidence: ["昨日营业 ¥98,600", "今日预计 ¥92,000", "预计少25桌 · 65位顾客"],
       nextRecheckAt: "12:00",
       conversionBasis: "按预计人均 ¥123、每桌2.6位顾客模拟换算",
     },
@@ -216,6 +426,7 @@ function createInitialState(): TerminalState {
         expectedImpact: "预计新增12桌、31位顾客",
         evidenceRequired: ["触达人数回执", "新增预约结果"],
         recheckAt: "17:00",
+        impact: { actionId: "member-recall", recoveredGuests: 31, recoveredTables: 12, forecastLift: 3800, actualRevenueLift: 0, measuredAt: "17:00", status: "expected" },
       }),
       action({
         id: "reservation-followup",
@@ -229,6 +440,7 @@ function createInitialState(): TerminalState {
         expectedImpact: "预计确认7桌、18位顾客",
         evidenceRequired: ["预约确认记录"],
         recheckAt: "17:10",
+        impact: { actionId: "reservation-followup", recoveredGuests: 18, recoveredTables: 7, forecastLift: 2200, actualRevenueLift: 0, measuredAt: "17:10", status: "expected" },
       }),
       action({
         id: "dinner-experience",
@@ -242,6 +454,7 @@ function createInitialState(): TerminalState {
         expectedImpact: "避免等待问题重复发生",
         evidenceRequired: ["现场照片", "语音反馈"],
         recheckAt: "20:30",
+        impact: { actionId: "dinner-experience", recoveredGuests: 0, recoveredTables: 0, forecastLift: 0, actualRevenueLift: 0, measuredAt: "20:30", status: "expected" },
       }),
       action({
         id: "regional-support",
@@ -296,11 +509,12 @@ function createInitialState(): TerminalState {
         sourceAt: "近28天 · 8月11日08:20更新",
       },
     ],
-    capabilities: [
-      { id: "operations", label: "营业管理", value: 80, evidence: "连续2天按时完成收官复盘" },
-      { id: "customer", label: "顾客经营", value: 75, evidence: "会员召回行动待本日验证" },
-      { id: "people", label: "员工培养", value: 66, evidence: "晨会任务能落实到具体负责人" },
-      { id: "execution", label: "执行能力", value: 90, evidence: "近7天证据回传及时率90%" },
+    knowledgeCases,
+    growthEvidence: [
+      { id: "growth-streak", label: "连续完成", trend: "2/7天", reason: "连续两天完成收官复盘", actionId: "closing-review", earned: true },
+      { id: "growth-method", label: "有效方法", trend: "待验证", reason: "会员召回需区域验收后才记录", actionId: "member-recall", earned: false },
+      { id: "growth-coaching", label: "带教改善", trend: "+1次", reason: "晨会行动落实到三位负责人", actionId: "morning-meeting", earned: false },
+      { id: "growth-evidence", label: "证据完整", trend: "近7天 90%", reason: "照片、语音和系统回执可追溯", actionId: "dinner-experience", earned: true },
     ],
     notifications: [
       {
@@ -350,9 +564,33 @@ class MockBusinessData implements BusinessDataAdapter {
     return signals;
   }
 
-  async buildClosingReview() {
+  async getSnapshot(stage: OperatingStageId, state: TerminalState) {
+    await pause(220);
+    return state.snapshots.find((item) => item.stage === stage) ?? state.snapshots[0];
+  }
+
+  async buildClosingReview(state: TerminalState) {
     await pause(620);
-    return dailyReview;
+    const criticalClosed = state.actions.filter((item) =>
+      ["member-recall", "reservation-followup", "dinner-experience"].includes(item.id) && item.status === "closed",
+    ).length;
+    const supportBlocked = state.workRequests.some((item) => item.status === "pendingRegional" || item.status === "escalatedToHQ");
+    const improved = criticalClosed >= 3 && state.gapProgress.remainingGuests <= 16 && !supportBlocked;
+    return {
+      ...dailyReview,
+      actualRevenue: improved ? 100600 : 94100,
+      outcome: improved ? "improved" as const : "partial" as const,
+      effectiveActions: improved ? dailyReview.effectiveActions : ["已完成晨会启动，但关键经营行动尚未闭环"],
+      remainingItems: improved ? dailyReview.remainingItems : ["会员召回证据待验收", "晚市现场体验待回传"],
+      conclusions: improved
+        ? dailyReview.conclusions
+        : [
+            "今日仍有关键行动未闭环，不能把预测影响当成实际结果。",
+            "实际收官低于目标，晚市顾客缺口仍需继续复盘。",
+            "明早先补齐证据，再决定是否复用召回方法。",
+          ],
+      tomorrowFirstAction: improved ? dailyReview.tomorrowFirstAction : "08:35补齐昨日未闭环证据",
+    };
   }
 }
 
@@ -399,10 +637,13 @@ class MockDecisionEngine implements DecisionEngineAdapter {
 
   async inspectEvidence(evidence: Evidence) {
     await pause(740);
+    const systemNote = evidence.actionId === "member-recall"
+      ? "已识别触达180位会员、新增预约12桌；建议区域经理人工确认。"
+      : "已识别10桌预约跟进记录，其中7桌已确认；建议区域经理人工确认。";
     return {
       result: "passed" as const,
       note: evidence.type === "systemReceipt"
-        ? "已识别触达180位会员、新增预约19桌；建议区域经理人工确认。"
+        ? systemNote
         : "照片清晰，时间与门店信息完整；建议区域经理人工确认。",
     };
   }
@@ -410,6 +651,27 @@ class MockDecisionEngine implements DecisionEngineAdapter {
   async explainSignal(signal: BusinessSignal) {
     await pause(420);
     return { summary: signal.managerLanguage, nextAction: "先执行会员召回，再于17:00复查预约" };
+  }
+
+  async judgeStage(snapshot: OperatingSnapshot) {
+    await pause(380);
+    return { judgment: snapshot.judgment, nextAction: snapshot.nextRecheckAt };
+  }
+
+  async recalculateGap(state: TerminalState) {
+    await pause(360);
+    const recallClosed = state.actions.some((item) => item.id === "member-recall" && item.status === "closed");
+    const reservationClosed = state.actions.some((item) => item.id === "reservation-followup" && item.status === "closed");
+    const recoveredGuests = (recallClosed ? 31 : 0) + (reservationClosed ? 18 : 0);
+    const recoveredTables = (recallClosed ? 12 : 0) + (reservationClosed ? 7 : 0);
+    return {
+      ...state.gapProgress,
+      recoveredGuests,
+      recoveredTables,
+      remainingGuests: 65 - recoveredGuests,
+      remainingTables: 25 - recoveredTables,
+      forecastAfter: 92000 + (recallClosed ? 3800 : 0) + (reservationClosed ? 2200 : 0),
+    };
   }
 }
 
@@ -441,6 +703,20 @@ class MockKnowledge implements KnowledgeAdapter {
   async matchProblem(topic: "traffic" | "rating" | "people") {
     await pause(580);
     return knowledgeMatches[topic];
+  }
+
+
+  async matchCurrentCase(state: TerminalState) {
+    await pause(420);
+    const candidate = knowledgeCases.find((item) =>
+      item.applicableStages.includes(state.operatingStage) && item.reviewStatus === "published",
+    );
+    return candidate ?? knowledgeCases[0];
+  }
+
+  async listCases() {
+    await pause(180);
+    return knowledgeCases;
   }
 }
 

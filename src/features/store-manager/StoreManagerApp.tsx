@@ -27,7 +27,9 @@ import { FlowStack, MobileScroll, type FlowControls, type FlowScreen } from "../
 import { actionStatusLabel } from "../../domain/reducer";
 import {
   getAction,
+  getCurrentSnapshot,
   getEvidenceForAction,
+  hasCompleteBusinessOutcome,
   getUnreadCount,
   money,
 } from "../../domain/selectors";
@@ -84,6 +86,7 @@ const reservationScreen = detailScreen("final-reservation", "预约跟进", (flo
 const experienceScreen = detailScreen("final-experience", "晚市顾客体验", (flow) => <ActionExecution flow={flow} actionId="dinner-experience" />);
 const supportRequestScreen = detailScreen("final-support-request", "向区域申请支持", (flow) => <SupportRequestFlow flow={flow} />);
 const closingReviewScreen = detailScreen("final-closing-review", "今日经营复盘", (flow) => <ClosingReviewFlow flow={flow} />);
+const lunchInspectionScreen = detailScreen("final-lunch-inspection", "午市现场复查", (flow) => <LunchInspectionFlow flow={flow} />);
 
 function actionScreen(id: string) {
   if (id === "member-recall") return memberRecallScreen;
@@ -160,33 +163,42 @@ function StoreRoot({
 
 function TodayScreen({ flow }: { flow: FlowControls }) {
   const { state } = useOperatingOS();
+  const snapshot = getCurrentSnapshot(state);
   const meeting = getAction(state, "morning-meeting")!;
   const recall = getAction(state, "member-recall")!;
+  const reservation = getAction(state, "reservation-followup")!;
   const closing = getAction(state, "closing-review")!;
   const meetingDone = meeting.status === "closed";
   const recallDone = recall.status === "closed";
-  const isClosing = state.operatingMoment === "closing";
+  const reservationDone = reservation.status === "closed";
+  const isClosing = state.operatingStage === "closingReview" || state.operatingStage === "completed";
+  const completedOutcome = hasCompleteBusinessOutcome(state);
 
   const primary = isClosing
-    ? { time: "21:30", title: "完成今日经营复盘", body: "AI已整理哪些动作有效，以及明天第一件事。", label: "查看复盘", screen: closingReviewScreen }
-    : !meetingDone
-      ? { time: "08:45", title: "开晨会", body: "你说一句，AI整理行动；确认后再下发。", label: "开始晨会", screen: meetingScreen }
-      : !recallDone
-        ? { time: "16:20", title: "执行会员召回", body: "晨会行动已下发，先触达180位近期会员。", label: "立即执行", screen: memberRecallScreen }
-        : { time: "18:00", title: "守住晚市10桌体验", body: "已补回19桌，当前营业额未变化，预计收官升至 ¥98,000。", label: "查看下一步", screen: experienceScreen };
+    ? { time: "21:30", title: "完成今日经营复盘", body: completedOutcome ? "先看经营结果，再看明日动作与成长证据。" : "还有行动未闭环，按真实收官结果复盘。", label: "查看复盘", screen: closingReviewScreen }
+    : state.operatingStage === "lunchReview"
+      ? { time: "12:00", title: "拍一张午市现场", body: "AI只看现场问题，不让你填写巡检表。", label: "拍照复查", screen: lunchInspectionScreen }
+      : state.operatingStage === "afternoonDecision"
+        ? { time: "14:30", title: "确认晚市经营剧本", body: "预约还少11桌，确认后进入晚市追回。", label: "确认剧本", screen: playbookScreen }
+        : state.operatingStage === "dinnerRecovery"
+          ? recallDone
+            ? { time: "16:40", title: "跟进10桌未确认预约", body: "召回先补回31位顾客，再确认7桌预约才算完成追回。", label: "继续预约跟进", screen: reservationScreen }
+            : { time: "16:20", title: "执行会员召回", body: meetingDone ? "晨会行动已下发，先触达180位近期会员。" : "演示已切到晚市；正式执行前仍需先确认晨会。", label: meetingDone ? "立即执行" : "查看晚市行动", screen: memberRecallScreen }
+          : state.operatingStage === "dinnerExperience"
+            ? { time: "18:00", title: "守住晚市10桌体验", body: "已补回19桌，当前营业额未变化，预计收官升至 ¥98,000。", label: "查看下一步", screen: experienceScreen }
+            : { time: "08:45", title: "开晨会", body: "你说一句，AI整理行动；确认后再下发。", label: "开始晨会", screen: meetingScreen };
 
   return (
     <>
       <AppBrandHeader
-        subtitle={`${state.brief.storeName} · ${state.brief.date} · ${state.operatingMoment === "preOpen" ? "08:30" : state.operatingMoment === "closing" ? "21:30" : "17:30"}`}
+        subtitle={`${state.brief.storeName} · ${state.brief.date} · ${snapshot.time}`}
         onNotifications={() => flow.push(notificationsScreen)}
       />
       <div className="store-greeting">
         <h1>
-          {isClosing ? "黄店长，今天辛苦了" : "黄店长，早上好"}
-          {!isClosing ? <em aria-hidden="true">☀️</em> : null}
+          {isClosing ? "黄店长，今天辛苦了" : snapshot.time === "08:30" ? "黄店长，早上好" : `黄店长，${snapshot.time}看这里`}
         </h1>
-        <span>{isClosing ? "收官" : "今日经营已准备"}</span>
+        <span className={`stage-pill stage-${state.operatingStage}`}>{isClosing ? "收官" : state.operatingStage === "lunchReview" ? "午市复查" : state.operatingStage === "dinnerRecovery" ? "晚市追回" : "今日经营已准备"}</span>
       </div>
 
       <section className="ai-command-card" data-testid="primary-action-card">
@@ -195,17 +207,15 @@ function TodayScreen({ flow }: { flow: FlowControls }) {
           <span><b>AI区域经理</b><small>基于经营数据 · 需人工确认</small></span>
           <MagicWandIcon />
         </div>
-        <h2>{isClosing ? "今天有效补回了晚市顾客。" : state.brief.judgment}</h2>
+        <h2>{state.brief.judgment}</h2>
         {!isClosing ? (
-          <button type="button" className="evidence-summary" onClick={() => flow.push(dataAnswerScreen)}>
-            <span><ActivityLogIcon /><b>{state.brief.evidence[0]}</b></span>
-            <span><CalendarIcon /><b>{state.brief.evidence[1]}</b></span>
-            <ChevronRightIcon />
+          <button type="button" className="evidence-summary v6-evidence-strip" onClick={() => flow.push(dataAnswerScreen)}>
+            {state.brief.evidence.slice(0, 3).map((item, index) => <span key={item} className={index === 0 ? "actual" : index === 1 ? "forecast" : "gap"}><small>{index === 0 ? "实际" : index === 1 ? "预测" : "差距"}</small><b>{item}</b></span>)}
           </button>
         ) : (
           <div className="closing-summary-inline">
-            <span><small>今日实际</small><b>¥100,600</b></span>
-            <span><small>目标</small><b>100.6%</b></span>
+            <span><small>今日实际</small><b>{money(state.dailyReview.actualRevenue)}</b></span>
+            <span><small>结果</small><b>{completedOutcome ? "已改善" : "未完全闭环"}</b></span>
           </div>
         )}
         <div className="command-action-block">
@@ -213,32 +223,34 @@ function TodayScreen({ flow }: { flow: FlowControls }) {
           <div><h3>{primary.time} {primary.title}</h3><ActivityLogIcon /></div>
           <p>{primary.body}</p>
           <PrimaryButton onClick={() => flow.push(primary.screen)}>{primary.label}</PrimaryButton>
-          <HumanConfirmNote text={isClosing ? "确认后生成日报与明日第一件事" : "确认后才会下发到负责人"} />
+          <HumanConfirmNote text={isClosing ? "确认后生成日报与明日第一件事" : state.operatingStage === "lunchReview" ? "照片仅用于演示识别，不上传真实平台" : state.operatingStage === "afternoonDecision" ? "确认后才启动晚市经营剧本" : state.operatingStage === "dinnerRecovery" ? "行动需人工确认，结果需证据验收" : "确认后才会下发到负责人"} />
         </div>
       </section>
 
-      <section className="compact-route-card">
-        <SectionHeading title="今天路线" meta={meetingDone ? "晨会已完成" : "下一步"} />
-        <div className="compact-route-grid">
-          <button type="button" onClick={() => flow.push(memberRecallScreen)}>
-            <ClockIcon /><span><small>16:20</small><b>会员召回</b></span>
-          </button>
-          <button type="button" onClick={() => flow.push(closingReviewScreen)}>
-            <ClockIcon /><span><small>21:30</small><b>收官复盘</b></span>
-          </button>
-        </div>
+      <section className="semantic-day-route" aria-label="今天经营路线">
+        <button type="button" className={state.operatingStage === "lunchReview" ? "current opportunity" : "opportunity"} onClick={() => flow.push(lunchInspectionScreen)}><span><ClockIcon /></span><small>12:00</small><b>午市复查</b></button>
+        <button type="button" className={state.operatingStage === "dinnerRecovery" ? "current result" : "result"} onClick={() => flow.push(memberRecallScreen)}><span><PersonIcon /></span><small>16:20</small><b>会员召回</b></button>
+        <button type="button" className={isClosing ? "current ai" : "ai"} onClick={() => flow.push(closingReviewScreen)}><span><ReaderIcon /></span><small>21:30</small><b>收官复盘</b></button>
       </section>
 
-      <button type="button" className="next-recheck-row" onClick={() => flow.push(dataAnswerScreen)}>
-        <BellIcon /><span>下次复查</span><b>{state.brief.nextRecheckAt} · AI复查顾客差距</b><ChevronRightIcon />
+      <button type="button" className="knowledge-match-row" onClick={() => flow.push({ ...detailScreen("current-case", "当前匹配方法", (innerFlow) => <CurrentKnowledgeCase flow={innerFlow} />) })}>
+        <ReaderIcon /><span><small>周麻婆知识匹配</small><b>{state.operatingStage === "lunchReview" ? "等菜问题用一条责任链闭环" : "会员召回：先触达，再追未确认预约"}</b></span><ChevronRightIcon />
       </button>
 
-      {recallDone ? (
+      {recallDone && !reservationDone ? (
         <ResultCard
           title="会员召回已通过区域验收"
-          body="触达180位会员，新增预约19桌、49位顾客。"
-          impact="预计收官由 ¥92,000 提升至 ¥98,000"
-          next="18:30复查到店"
+          body="触达180位会员，先新增12桌、31位顾客。"
+          impact="预计收官由 ¥92,000 提升至 ¥95,800；当前收入未变化"
+          next="17:10跟进未确认预约"
+        />
+      ) : null}
+      {recallDone && reservationDone ? (
+        <ResultCard
+          title="召回与预约跟进已闭环"
+          body="两项行动共补回19桌、49位顾客。"
+          impact="预计收官由 ¥92,000 提升至 ¥98,000；当前收入未变化"
+          next="18:30复查实际到店"
         />
       ) : null}
     </>
@@ -280,20 +292,22 @@ function DataScreen({ flow }: { flow: FlowControls }) {
 function TasksScreen({ flow }: { flow: FlowControls }) {
   const { state } = useOperatingOS();
   const visibleActions = state.actions.filter((item) => item.id !== "regional-support" || item.released);
+  const currentAction = visibleActions.find((item) => item.status !== "closed") ?? visibleActions.at(-1)!;
+  const nextAction = visibleActions.find((item) => item.time > currentAction.time && item.status !== "closed");
   return (
     <>
-      <AppBrandHeader subtitle="今日经营行动 · 非传统待办" onNotifications={() => flow.push(notificationsScreen)} />
-      <div className="page-title-block"><span>当前只做一件</span><h1>晚市顾客追回行动</h1><p>每一步都要有负责人、证据和结果反馈。</p></div>
-      <section className="playbook-progress">
-        {visibleActions.map((item, index) => (
-          <button type="button" key={item.id} onClick={() => flow.push(actionScreen(item.id))} className={item.status === "closed" ? "done" : ""}>
-            <time>{item.time}</time>
-            <i>{item.status === "closed" ? <CheckCircledIcon /> : index + 1}</i>
-            <span><b>{item.title}</b><small>{item.owner} · {item.expectedImpact}</small></span>
-            <StatusPill status={item.status} />
-            <ChevronRightIcon />
-          </button>
-        ))}
+      <AppBrandHeader subtitle="今日经营剧本 · 动作跟着问题走" onNotifications={() => flow.push(notificationsScreen)} />
+      <div className="page-title-block compact-title-block"><span>当前行动</span><h1>先完成这一件</h1><p>其他行动等结果回来后再重新安排。</p></div>
+      <section className="current-action-focus">
+        <div><span>{currentAction.time}</span><StatusPill status={currentAction.status} /></div>
+        <h2>{currentAction.title}</h2>
+        <p>{currentAction.owner} · {currentAction.expectedImpact}</p>
+        <PrimaryButton onClick={() => flow.push(actionScreen(currentAction.id))}>进入当前行动</PrimaryButton>
+      </section>
+      {nextAction ? <button type="button" className="next-action-preview" onClick={() => flow.push(actionScreen(nextAction.id))}><ClockIcon /><span><small>下一行动 · {nextAction.time}</small><b>{nextAction.title}</b></span><ChevronRightIcon /></button> : null}
+      <SectionHeading title="今日经营时间线" meta={`${visibleActions.filter((item) => item.status === "closed").length}/${visibleActions.length}已闭环`} />
+      <section className="playbook-progress collapsed-history">
+        {visibleActions.map((item, index) => <button type="button" key={item.id} onClick={() => flow.push(actionScreen(item.id))} className={item.status === "closed" ? "done" : item.id === currentAction.id ? "current" : ""}><time>{item.time}</time><i>{item.status === "closed" ? <CheckCircledIcon /> : index + 1}</i><span><b>{item.title}</b><small>{item.owner} · {item.source}</small></span><StatusPill status={item.status} /><ChevronRightIcon /></button>)}
       </section>
       <button type="button" className="plain-wide-button" onClick={() => flow.push(playbookScreen)}>查看负责人、证据与审批记录 <ChevronRightIcon /></button>
     </>
@@ -301,15 +315,18 @@ function TasksScreen({ flow }: { flow: FlowControls }) {
 }
 
 function AcademyScreen({ flow }: { flow: FlowControls }) {
-  const { adapters, run, showToast } = useOperatingOS();
+  const { state, adapters, run, showToast } = useOperatingOS();
   const [topic, setTopic] = useState<KnowledgeTopic>("traffic");
   const [match, setMatch] = useState<Awaited<ReturnType<typeof adapters.knowledge.matchProblem>> | null>(null);
+  const [currentCase, setCurrentCase] = useState<Awaited<ReturnType<typeof adapters.knowledge.matchCurrentCase>> | null>(null);
 
   useEffect(() => {
     let active = true;
-    adapters.knowledge.matchProblem(topic).then((result) => active && setMatch(result));
+    Promise.all([adapters.knowledge.matchProblem(topic), adapters.knowledge.matchCurrentCase(state)]).then(([result, caseResult]) => {
+      if (active) { setMatch(result); setCurrentCase(caseResult); }
+    });
     return () => { active = false; };
-  }, [adapters, topic]);
+  }, [adapters, topic, state.operatingStage]);
 
   const choose = async (next: KnowledgeTopic) => {
     setTopic(next);
@@ -322,7 +339,7 @@ function AcademyScreen({ flow }: { flow: FlowControls }) {
   return (
     <>
       <AppBrandHeader subtitle="经营知识大脑 · 按问题调用" onNotifications={() => flow.push(notificationsScreen)} />
-      <div className="page-title-block"><span>当前问题已带入</span><h1>今天顾客少，怎么办？</h1><p>AI匹配总部SOP与优秀门店做法，不让店长自己翻课程。</p></div>
+      <div className="page-title-block compact-title-block"><span>当前问题已带入</span><h1>{currentCase?.judgment ?? "今天顾客少，怎么办？"}</h1><p>一次只给最相关的一种周麻婆方法。</p></div>
       <div className="topic-chips">
         <button type="button" className={topic === "traffic" ? "active" : ""} onClick={() => choose("traffic")}>顾客少</button>
         <button type="button" className={topic === "rating" ? "active" : ""} onClick={() => choose("rating")}>评分下降</button>
@@ -330,11 +347,12 @@ function AcademyScreen({ flow }: { flow: FlowControls }) {
       </div>
       {match ? (
         <section className="knowledge-answer-card">
+          {currentCase?.imageUrl ? <img className="knowledge-case-image" src={currentCase.imageUrl} alt={currentCase.imageAlt ?? currentCase.title} draggable={false} /> : null}
           <div><MagicWandIcon /><span><small>AI判断</small><b>{match.judgment}</b></span></div>
-          <h2>{match.caseTitle}</h2>
-          <p>{match.caseResult}</p>
-          <ol>{match.actions.map((item) => <li key={item}>{item}</li>)}</ol>
-          <small>来源：{match.source}</small>
+          <h2>{currentCase?.title ?? match.caseTitle}</h2>
+          <p>{currentCase?.result ?? match.caseResult}</p>
+          <ol>{(currentCase?.actions ?? match.actions).map((item) => <li key={item}>{item}</li>)}</ol>
+          <small>来源：{currentCase ? `${currentCase.sourceType} · ${currentCase.sourceNote}` : match.source}</small>
           <PrimaryButton onClick={() => { showToast("已加入今日经营行动"); flow.push(playbookScreen); }}>加入今日行动</PrimaryButton>
         </section>
       ) : null}
@@ -348,6 +366,7 @@ function MineScreen({ openRole, openReset }: { openRole: () => void; openReset: 
   const moments: Array<{ id: OperatingMomentId; label: string }> = [
     { id: "preOpen", label: "08:30" },
     { id: "lunch", label: "12:00" },
+    { id: "afternoon", label: "14:30" },
     { id: "dinner", label: "17:30" },
     { id: "closing", label: "21:30" },
   ];
@@ -358,12 +377,12 @@ function MineScreen({ openRole, openReset }: { openRole: () => void; openReset: 
         <span className="manager-avatar">黄</span>
         <div><small>三盛广场演示店</small><h1>黄店长</h1><p>连续完成经营闭环 2/7天</p></div>
       </section>
-      <SectionHeading title="我正在变强的地方" meta="有任务证据才变化" />
-      <section className="capability-list">
-        {state.capabilities.map((item) => (
+      <SectionHeading title="今天留下的成长证据" meta="有行动证据才变化" />
+      <section className="capability-list growth-evidence-list">
+        {state.growthEvidence.map((item) => (
           <div key={item.id}>
-            <span><b>{item.label}</b><small>{item.evidence}</small></span>
-            <strong>{item.value}</strong>
+            <span><b>{item.label}</b><small>{item.reason}</small></span>
+            <strong className={item.earned ? "earned" : "pending"}>{item.trend}</strong>
           </div>
         ))}
       </section>
@@ -436,6 +455,64 @@ function BusinessAnswerScreen({ flow }: { flow: FlowControls }) {
         </section>
         {explanation ? <ResultCard title={explanation.summary} body={explanation.nextAction} impact="预计补回19至25桌" next="17:00复查预约" /> : null}
         <PrimaryButton onClick={explanation ? () => flow.push(memberRecallScreen) : analyze}>{explanation ? "执行会员召回" : "让AI给出下一步"}</PrimaryButton>
+      </main>
+    </MobileScroll>
+  );
+}
+
+function CurrentKnowledgeCase({ flow }: { flow: FlowControls }) {
+  const { state, adapters, run, showToast } = useOperatingOS();
+  const [item, setItem] = useState<Awaited<ReturnType<typeof adapters.knowledge.matchCurrentCase>> | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    adapters.knowledge.matchCurrentCase(state).then((result) => active && setItem(result));
+    return () => { active = false; };
+  }, [adapters, state.operatingStage]);
+
+  if (!item) return <MobileScroll className="final-scroll"><main className="final-detail-page"><AIWorking label="正在匹配周麻婆案例" /></main></MobileScroll>;
+  return (
+    <MobileScroll className="final-scroll">
+      <main className="final-detail-page">
+        <section className="knowledge-detail-hero">
+          {item.imageUrl ? <img src={item.imageUrl} alt={item.imageAlt ?? item.title} draggable={false} /> : <ReaderIcon />}
+          <span>{item.sourceType} · v{item.version}.0</span>
+          <h1>{item.title}</h1>
+          <p>{item.judgment}</p>
+        </section>
+        <section className="knowledge-steps"><SectionHeading title="今天这样做" meta="仅当前节点" />{item.actions.map((step, index) => <div key={step}><b>{index + 1}</b><span>{step}</span></div>)}</section>
+        <div className="knowledge-source-note"><InfoCircledIcon /><span><b>来源与边界</b><small>{item.sourceNote}</small></span></div>
+        <PrimaryButton onClick={async () => { await run("正在加入今日经营剧本", async () => new Promise((resolve) => window.setTimeout(resolve, 360))); showToast("方法已加入当前行动"); flow.replace(playbookScreen); }}>加入今日经营剧本</PrimaryButton>
+      </main>
+    </MobileScroll>
+  );
+}
+
+function LunchInspectionFlow({ flow }: { flow: FlowControls }) {
+  const { state, dispatch, adapters, run, evidence, showToast } = useOperatingOS();
+  const proof = state.evidence.find((item) => item.actionId === "lunch-inspection");
+  const [captured, setCaptured] = useState(Boolean(proof));
+  const inspect = async () => {
+    await run("核对现场照片 → 识别等菜问题", async () => {
+      const item = evidence("lunch-inspection", "photo", "午市现场已识别：前厅正常，传菜口等待偏久", "/assets/task-evidence.jpg");
+      item.aiResult = "passed";
+      item.aiNote = "整洁度正常；人员到岗；传菜口等待风险需晚市复查。";
+      item.inspected = { cleanliness: "整洁", staffing: "到岗", waitingRisk: "传菜口偏慢" };
+      await adapters.workflow.submitEvidence(item);
+      dispatch({ type: "completeLunchInspection", evidence: item });
+      setCaptured(true);
+    });
+    showToast("现场问题已带入晚市经营剧本");
+  };
+  return (
+    <MobileScroll className="final-scroll">
+      <main className="final-detail-page">
+        <section className="inspection-camera-card">
+          <img src="/assets/task-evidence.jpg" alt="午市现场演示照片" draggable={false} />
+          <div><span>12:00 · 午市现场</span><h1>{captured ? "AI已看完这张照片" : "拍一张，AI替你完成巡检"}</h1><p>无需填写卫生、人员和等菜检查表。</p></div>
+        </section>
+        {captured ? <section className="inspection-findings"><div className="good"><CheckCircledIcon /><span><small>桌面与前厅</small><b>整洁</b></span></div><div className="good"><CheckCircledIcon /><span><small>人员到岗</small><b>正常</b></span></div><div className="warning"><ClockIcon /><span><small>需要关注</small><b>传菜口等待偏久</b></span></div></section> : null}
+        {!captured ? <PrimaryButton onClick={inspect} icon={<CameraIcon />}>模拟拍照并让AI识别</PrimaryButton> : <><ResultCard title="午市现场已复查" body="发现传菜口等待偏久，已生成晚市现场关注动作。" impact="不虚增营业额；降低晚市等菜风险" next="14:30确认晚市剧本" /><PrimaryButton onClick={() => flow.replace(playbookScreen)}>查看AI重新安排</PrimaryButton></>}
       </main>
     </MobileScroll>
   );
@@ -541,15 +618,17 @@ function MorningMeetingFlow({ flow }: { flow: FlowControls }) {
 }
 
 function PlaybookScreen({ flow }: { flow: FlowControls }) {
-  const { state } = useOperatingOS();
+  const { state, dispatch, approval, showToast } = useOperatingOS();
+  const needsAfternoonConfirmation = state.operatingStage === "afternoonDecision";
   return (
     <MobileScroll className="final-scroll">
       <main className="final-detail-page">
         <section className="playbook-hero">
           <span>8月11日晚市顾客追回</span>
-          <h1>每一步都从经营问题出发</h1>
-          <p>晨会确认后才正式进入执行；证据先由AI检查，再由区域经理验收。</p>
+          <h1>{needsAfternoonConfirmation ? "晚市预约少11桌，建议现在启动追回" : "每一步都从经营问题出发"}</h1>
+          <p>{needsAfternoonConfirmation ? "确认后，系统会进入17:30晚市追回并重新安排主行动。" : "证据先由AI检查，再由区域经理验收。"}</p>
         </section>
+        {needsAfternoonConfirmation ? <><PrimaryButton onClick={() => { dispatch({ type: "confirmDinnerPlaybook", approval: approval("decision", "decision-dinner-gap", "confirmed", "确认启动晚市顾客追回剧本", "4.0") }); showToast("晚市剧本已确认，进入17:30追回"); flow.pop(); }}>人工确认晚市经营剧本</PrimaryButton><HumanConfirmNote text="AI只生成剧本，店长确认后才进入执行" /></> : null}
         <section className="action-detail-list">
           {state.actions.filter((item) => item.id !== "regional-support" || item.released).map((item) => (
             <button type="button" key={item.id} onClick={() => flow.push(actionScreen(item.id))}>
@@ -572,6 +651,9 @@ function ActionExecution({ flow, actionId }: { flow: FlowControls; actionId: str
   const proofs = getEvidenceForAction(state, actionId);
   const latestEvidence = proofs[proofs.length - 1];
   const isRecall = actionId === "member-recall";
+  const isReservation = actionId === "reservation-followup";
+  const isSystemReceipt = isRecall || isReservation;
+  const blockedByMeeting = !item.released && state.meetingStage < 4;
 
   const confirmExecution = () => {
     dispatch({
@@ -584,24 +666,28 @@ function ActionExecution({ flow, actionId }: { flow: FlowControls; actionId: str
   };
 
   const execute = async () => {
-    await run(isRecall ? "正在生成门店召回内容" : "正在准备行动回传", async () => {
+    await run(isRecall ? "正在生成门店召回内容" : isReservation ? "正在核对预约跟进记录" : "正在准备行动回传", async () => {
       await adapters.workflow.issueActions([item]);
       dispatch({
         type: "setActionStatus",
         actionId,
         status: "pendingEvidence",
-        approval: approval("action", actionId, "confirmed", isRecall ? "确认向180位会员发送召回内容" : "确认执行现场行动", `v${item.templateVersion}.0`),
+        approval: approval("action", actionId, "confirmed", isRecall ? "确认向180位会员发送召回内容" : isReservation ? "确认跟进10桌未确认预约" : "确认执行现场行动", `v${item.templateVersion}.0`),
       });
     });
-    showToast(isRecall ? "已模拟发送，等待回收预约结果" : "行动已执行，请回传证据");
+    showToast(isRecall ? "已模拟发送，等待回收预约结果" : isReservation ? "10桌已跟进，请回传确认记录" : "行动已执行，请回传证据");
   };
 
   const submit = async () => {
     const proof = evidence(
       actionId,
-      isRecall ? "systemReceipt" : "photo",
-      isRecall ? "已触达180位会员，新增预约19桌、49位顾客" : "晚市现场10桌体验检查已完成",
-      isRecall ? undefined : "/assets/task-evidence.jpg",
+      isSystemReceipt ? "systemReceipt" : "photo",
+      isRecall
+        ? "已触达180位会员，新增预约12桌、31位顾客"
+        : isReservation
+          ? "已跟进10桌未确认预约，确认7桌、18位顾客"
+          : "晚市现场10桌体验检查已完成",
+      isSystemReceipt ? undefined : "/assets/task-evidence.jpg",
     );
     await run("正在接收行动证据", async () => {
       await adapters.workflow.submitEvidence(proof);
@@ -655,16 +741,17 @@ function ActionExecution({ flow, actionId }: { flow: FlowControls; actionId: str
           <ResultCard
             title={isRecall ? "行动已闭环" : "现场行动已闭环"}
             body={item.result ?? "区域经理已确认"}
-            impact={isRecall ? "预计收官 ¥92,000 → ¥98,000；当前收入未虚增" : item.expectedImpact}
+            impact={isRecall ? "预计收官 ¥92,000 → ¥95,800；当前收入未虚增" : isReservation ? "两项行动完成后预计收官升至 ¥98,000" : item.expectedImpact}
             next={item.recheckAt}
           >
             <ApprovalAudit title="人工验收已记录" approver="林阳区域经理" note="证据完整，确认闭环" />
           </ResultCard>
         ) : null}
 
-        {item.status === "pendingConfirmation" || item.status === "aiSuggested" ? <PrimaryButton onClick={confirmExecution}>人工确认执行</PrimaryButton> : null}
-        {item.status === "inProgress" ? <PrimaryButton onClick={execute}>{isRecall ? "确认发送给180位会员" : "确认完成并准备回传"}</PrimaryButton> : null}
-        {item.status === "pendingEvidence" ? <PrimaryButton onClick={submit}>{latestEvidence ? "补充一份证据" : isRecall ? "回传系统结果" : "拍照并回传"}</PrimaryButton> : null}
+        {blockedByMeeting ? <NeedsAttention title="这项行动还没正式下发" body="请先完成晨会并人工确认负责人。" /> : null}
+        {!blockedByMeeting && (item.status === "pendingConfirmation" || item.status === "aiSuggested") ? <PrimaryButton onClick={confirmExecution}>人工确认执行</PrimaryButton> : null}
+        {item.status === "inProgress" ? <PrimaryButton onClick={execute}>{isRecall ? "确认发送给180位会员" : isReservation ? "确认已跟进10桌" : "确认完成并准备回传"}</PrimaryButton> : null}
+        {item.status === "pendingEvidence" ? <PrimaryButton onClick={submit}>{latestEvidence ? "补充一份证据" : isSystemReceipt ? "回传系统结果" : "拍照并回传"}</PrimaryButton> : null}
         {item.status === "aiReview" ? <PrimaryButton onClick={aiReview}>开始AI初验</PrimaryButton> : null}
         {item.status === "pendingHumanReview" ? <><PrimaryButton disabled onClick={() => undefined}>等待林阳人工验收</PrimaryButton><HumanConfirmNote text="AI初验通过不等于正式闭环" /></> : null}
         {item.status === "returned" ? <><NeedsAttention title="区域经理退回补充" body={item.result ?? "请补充证据"} /><PrimaryButton onClick={resubmit}>重新处理并补拍</PrimaryButton></> : null}
@@ -722,7 +809,10 @@ function ClosingReviewFlow({ flow }: { flow: FlowControls }) {
 
   const generate = async () => {
     await run("正在核对目标、预测与实际结果", async () => {
-      await adapters.business.buildClosingReview();
+      const review = await adapters.business.buildClosingReview(state);
+      if (review.actualRevenue !== state.dailyReview.actualRevenue || review.outcome !== state.dailyReview.outcome) {
+        dispatch({ type: "setStage", stage: "closingReview" });
+      }
       setReady(true);
     });
   };
@@ -737,8 +827,8 @@ function ClosingReviewFlow({ flow }: { flow: FlowControls }) {
       <main className="final-detail-page">
         <section className="closing-number-card">
           <span>8月11日收官</span>
-          <div><p><small>目标</small><b>¥100,000</b></p><p><small>实际</small><b>¥100,600</b></p></div>
-          <strong>达成 100.6%</strong>
+          <div><p><small>目标</small><b>¥100,000</b></p><p><small>实际</small><b>{money(state.dailyReview.actualRevenue)}</b></p></div>
+          <strong>{state.dailyReview.outcome === "improved" ? "达成 100.6%" : "未完全达标 · 按真实结果复盘"}</strong>
         </section>
         {!ready ? <><p className="detail-lead">AI会对比早上预测、执行动作与真实收官，不把预计影响当成实际收入。</p><PrimaryButton onClick={generate}>生成今日经营复盘</PrimaryButton></> : null}
         {ready ? (
@@ -747,8 +837,9 @@ function ClosingReviewFlow({ flow }: { flow: FlowControls }) {
               <SectionHeading title="AI复盘三句话" meta="待你确认" />
               {state.dailyReview.conclusions.map((item, index) => <p key={item}><b>{index + 1}</b>{item}</p>)}
             </section>
-            <ResultCard title="会员召回真正有效" body="新增预约19桌；区域支持帮助更快补回顾客。" impact="实际收官 ¥100,600" next="明日08:40复盘到店率" />
+            <ResultCard title={state.dailyReview.outcome === "improved" ? "会员召回真正有效" : "关键行动还没完全闭环"} body={state.dailyReview.effectiveActions.join("；")} impact={`实际收官 ${money(state.dailyReview.actualRevenue)}`} next={state.dailyReview.tomorrowFirstAction} />
             <section className="tomorrow-action"><small>明天第一件事</small><b>{state.dailyReview.tomorrowFirstAction}</b></section>
+            <section className="closing-growth-evidence"><SectionHeading title="最后看成长证据" meta="经营结果优先" />{state.growthEvidence.filter((item) => item.earned).map((item) => <span key={item.id}><CheckCircledIcon /><b>{item.label}</b><small>{item.trend}</small></span>)}</section>
             {!state.dailyReview.generated ? <PrimaryButton onClick={confirm}>人工确认并生成日报</PrimaryButton> : <ApprovalAudit title="今日复盘已确认" approver="黄店长" note="日报和明日行动已生成" />}
           </>
         ) : null}

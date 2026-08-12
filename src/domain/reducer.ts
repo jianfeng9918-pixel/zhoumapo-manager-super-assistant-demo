@@ -10,7 +10,10 @@ export type TerminalAction =
   | { type: "switchRole"; role: RoleId }
   | { type: "setTab"; role: RoleId; tab: string }
   | { type: "setMoment"; moment: TerminalState["operatingMoment"] }
+  | { type: "setStage"; stage: TerminalState["operatingStage"]; manual?: boolean }
   | { type: "setMeetingStage"; stage: TerminalState["meetingStage"]; transcript?: string[]; missingItem?: string }
+  | { type: "completeLunchInspection"; evidence: Evidence }
+  | { type: "confirmDinnerPlaybook"; approval: ApprovalRecord }
   | { type: "confirmMeeting"; approval: ApprovalRecord }
   | { type: "setActionStatus"; actionId: string; status: ActionStatus; result?: string; approval?: ApprovalRecord }
   | { type: "submitEvidence"; evidence: Evidence }
@@ -54,7 +57,9 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
     case "setTab":
       return { ...state, activeTabs: { ...state.activeTabs, [action.role]: action.tab } };
     case "setMoment":
-      return { ...state, operatingMoment: action.moment };
+      return applyStage(state, momentToStage(action.moment));
+    case "setStage":
+      return applyStage(state, action.stage);
     case "setMeetingStage":
       return {
         ...state,
@@ -62,9 +67,36 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
         meetingTranscript: action.transcript ?? state.meetingTranscript,
         meetingMissingItem: action.missingItem ?? state.meetingMissingItem,
       };
+    case "completeLunchInspection":
+      return applyStage({
+        ...state,
+        evidence: [...state.evidence, action.evidence],
+        growthEvidence: state.growthEvidence.map((item) =>
+          item.id === "growth-evidence" ? { ...item, earned: true, evidenceId: action.evidence.id } : item,
+        ),
+        notifications: [
+          {
+            id: "notice-lunch-inspection",
+            role: "storeManager",
+            title: "午市现场已识别1个问题",
+            body: "前厅正常；传菜口等待偏久，已带入晚市剧本。",
+            createdAt: "12:05",
+            read: false,
+            target: "action",
+          },
+          ...state.notifications,
+        ],
+        activity: appendActivity(state, action.evidence.submittedBy, "完成午市拍照巡检", "lunch-inspection"),
+      }, "afternoonDecision");
+    case "confirmDinnerPlaybook":
+      return applyStage({
+        ...state,
+        approvals: [...state.approvals, action.approval],
+        activity: appendActivity(state, action.approval.confirmedBy, "确认晚市顾客追回剧本", "decision-dinner-gap"),
+      }, "dinnerRecovery");
     case "confirmMeeting": {
       const releasedIds = new Set(["member-recall", "reservation-followup", "dinner-experience"]);
-      return {
+      return applyStage({
         ...state,
         meetingStage: 4,
         approvals: [...state.approvals, action.approval],
@@ -101,7 +133,7 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
           ...state.notifications,
         ],
         activity: appendActivity(state, action.approval.confirmedBy, "人工确认晨会并下发3项行动", "morning-meeting"),
-      };
+      }, "lunchReview");
     }
     case "setActionStatus": {
       const approval = action.approval;
@@ -160,7 +192,24 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
     case "approveEvidence": {
       const approvedAction = state.actions.find((item) => item.id === action.actionId);
       const isRecall = action.actionId === "member-recall";
-      return {
+      const isReservation = action.actionId === "reservation-followup";
+      const impact = approvedAction?.impact;
+      const nextRecoveredGuests = Math.min(
+        state.gapProgress.initialGuests,
+        state.gapProgress.recoveredGuests + (impact?.recoveredGuests ?? 0),
+      );
+      const nextRecoveredTables = Math.min(
+        state.gapProgress.initialTables,
+        state.gapProgress.recoveredTables + (impact?.recoveredTables ?? 0),
+      );
+      const nextForecast = Math.min(
+        98000,
+        state.gapProgress.forecastAfter + (impact?.forecastLift ?? 0),
+      );
+      const nextGuestGap = Math.max(0, state.gapProgress.initialGuests - nextRecoveredGuests);
+      const nextTableGap = Math.max(0, state.gapProgress.initialTables - nextRecoveredTables);
+      const changesBusinessGap = isRecall || isReservation;
+      const nextState: TerminalState = {
         ...state,
         approvals: [...state.approvals, action.approval],
         evidence: state.evidence.map((item) =>
@@ -171,26 +220,57 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
             ? {
                 ...item,
                 status: "closed" as const,
-                result: isRecall ? "触达180位会员，新增预约19桌、49位顾客" : "区域经理已确认闭环",
+                result: isRecall
+                  ? "触达180位会员，新增预约12桌、31位顾客"
+                  : isReservation
+                    ? "跟进10桌未确认预约，确认7桌、18位顾客"
+                    : "区域经理已确认闭环",
+                impact: item.impact ? { ...item.impact, status: "verified" as const } : item.impact,
                 approvalRecordIds: [...item.approvalRecordIds, action.approval.id],
               }
             : item,
         ),
-        brief: isRecall
+        brief: changesBusinessGap
           ? {
               ...state.brief,
-              forecastRevenue: 98000,
-              forecastGuestGap: 16,
-              forecastTableGap: 6,
-              judgment: "会员召回已补回19桌，接下来守住晚市体验。",
-              evidence: ["会员召回新增19桌预约", "预计收官由 ¥92,000 升至 ¥98,000"],
-              nextRecheckAt: "18:30",
+              forecastRevenue: nextForecast,
+              forecastGuestGap: nextGuestGap,
+              forecastTableGap: nextTableGap,
+              judgment: isRecall
+                ? "会员召回先补回31位顾客，接着追10桌未确认预约。"
+                : "两个动作共补回49位顾客，接下来守住晚市体验。",
+              evidence: isRecall
+                ? ["召回新增12桌 · 31位顾客", `预计收官升至 ¥${nextForecast.toLocaleString("zh-CN")}`, `还差${nextTableGap}桌 · ${nextGuestGap}位顾客`]
+                : ["两项行动共补回19桌", "预计收官升至 ¥98,000", "还差6桌 · 16位顾客"],
+              nextRecheckAt: isRecall ? "17:10" : "18:30",
             }
           : state.brief,
-        capabilities: state.capabilities.map((item) =>
-          isRecall && item.id === "customer"
-            ? { ...item, value: item.value + 1, evidence: "会员召回经区域经理验收闭环" }
+        gapProgress: changesBusinessGap
+          ? {
+              ...state.gapProgress,
+              recoveredGuests: nextRecoveredGuests,
+              recoveredTables: nextRecoveredTables,
+              remainingGuests: nextGuestGap,
+              remainingTables: nextTableGap,
+              forecastAfter: nextForecast,
+            }
+          : state.gapProgress,
+        growthEvidence: state.growthEvidence.map((item) =>
+          changesBusinessGap && item.actionId === action.actionId
+            ? { ...item, earned: true, evidenceId: action.evidenceId, trend: "+1次有效方法" }
             : item,
+        ),
+        regionStores: state.regionStores.map((store) =>
+          changesBusinessGap && store.id === "sansheng"
+            ? {
+                ...store,
+                guestGap: nextGuestGap,
+                tableGap: nextTableGap,
+                forecastGap: Math.max(2000, 100000 - nextForecast),
+                unresolvedActions: Math.max(1, store.unresolvedActions - 1),
+                pendingEvidence: Math.max(0, store.pendingEvidence - 1),
+              }
+            : store,
         ),
         notifications: [
           {
@@ -207,6 +287,10 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
         ],
         activity: appendActivity(state, action.approval.confirmedBy, "人工验收通过", action.actionId),
       };
+      if (isRecall) return applyStage(nextState, "dinnerRecovery");
+      if (isReservation) return applyStage(nextState, "dinnerExperience");
+      if (action.actionId === "dinner-experience") return applyStage(nextState, "closingReview");
+      return nextState;
     }
     case "returnEvidence":
       return {
@@ -251,6 +335,7 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
               }
             : request,
         ),
+        regionStores: state.regionStores.map((store) => store.id === "sansheng" ? { ...store, helpUrgency: "urgent" as const } : store),
         notifications: [
           {
             id: "notice-new-work-request",
@@ -281,6 +366,7 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
               }
             : request,
         ),
+        regionStores: state.regionStores.map((store) => store.id === "sansheng" ? { ...store, helpUrgency: action.escalate ? "urgent" as const : "normal" as const } : store),
         actions: action.escalate
           ? state.actions
           : state.actions.map((item) =>
@@ -320,6 +406,11 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
               }
             : item,
         ),
+        knowledgeCases: state.knowledgeCases.map((item) =>
+          item.id === "case-member-recall"
+            ? { ...item, version: nextVersion, reviewStatus: "published" as const, sourceNote: `总部市场中心人工发布 v${nextVersion}.0 · 演示数据` }
+            : item,
+        ),
         actions: state.actions.map((item) =>
           item.templateId === action.templateId && item.status !== "closed"
             ? { ...item, templateVersion: nextVersion }
@@ -351,7 +442,7 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
     case "addNotification":
       return { ...state, notifications: [action.notification, ...state.notifications] };
     case "completeReview":
-      return {
+      return applyStage({
         ...state,
         approvals: [...state.approvals, action.approval],
         dailyReview: { ...state.dailyReview, generated: true },
@@ -367,12 +458,90 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
             : item,
         ),
         activity: appendActivity(state, action.approval.confirmedBy, "人工确认今日收官复盘", "closing-review"),
-      };
+      }, "completed");
     case "reset":
       return action.state;
     default:
       return state;
   }
+}
+
+function momentToStage(moment: TerminalState["operatingMoment"]): TerminalState["operatingStage"] {
+  if (moment === "preOpen") return "morningBrief";
+  if (moment === "lunch") return "lunchReview";
+  if (moment === "afternoon") return "afternoonDecision";
+  if (moment === "dinner") return "dinnerRecovery";
+  return "closingReview";
+}
+
+function stageToMoment(stage: TerminalState["operatingStage"]): TerminalState["operatingMoment"] {
+  if (stage === "morningBrief" || stage === "morningMeeting") return "preOpen";
+  if (stage === "lunchReview") return "lunch";
+  if (stage === "afternoonDecision") return "afternoon";
+  if (stage === "dinnerRecovery" || stage === "dinnerExperience") return "dinner";
+  return "closing";
+}
+
+function applyStage(state: TerminalState, stage: TerminalState["operatingStage"]): TerminalState {
+  const snapshot = state.snapshots.find((item) => item.stage === stage)
+    ?? state.snapshots.find((item) => item.stage === "closingReview")
+    ?? state.snapshots[0];
+  const completedCritical = state.actions.filter((item) =>
+    ["member-recall", "reservation-followup", "dinner-experience"].includes(item.id) && item.status === "closed",
+  ).length;
+  const supportBlocked = state.workRequests.some((item) => item.status === "pendingRegional" || item.status === "escalatedToHQ");
+  const fullOutcome = completedCritical >= 3 && state.gapProgress.remainingGuests <= 16 && !supportBlocked;
+  const closingStage = stage === "closingReview" || stage === "completed";
+  const closingActual = fullOutcome ? 100600 : 94100;
+  const actualRevenue = closingStage ? closingActual : snapshot.currentRevenue;
+  const forecastRevenue = state.gapProgress.recoveredGuests > 0
+    ? Math.max(snapshot.forecastRevenue, state.gapProgress.forecastAfter)
+    : snapshot.forecastRevenue;
+  const guestGap = state.gapProgress.recoveredGuests > 0 ? state.gapProgress.remainingGuests : snapshot.guestGap;
+  const tableGap = state.gapProgress.recoveredTables > 0 ? state.gapProgress.remainingTables : snapshot.tableGap;
+  const recallOnly = stage === "dinnerRecovery" && state.gapProgress.recoveredGuests === 31;
+  const stageJudgment = recallOnly
+    ? "会员召回先补回31位顾客，接着追10桌未确认预约。"
+    : snapshot.judgment;
+  const stageEvidence = recallOnly
+    ? ["召回新增12桌 · 31位顾客", "预计收官升至 ¥95,800", "还差13桌 · 34位顾客"]
+    : snapshot.evidence;
+  return {
+    ...state,
+    operatingStage: stage,
+    operatingMoment: stageToMoment(stage),
+    brief: {
+      ...state.brief,
+      currentRevenue: actualRevenue,
+      expectedRevenueNow: snapshot.expectedRevenueNow,
+      forecastRevenue,
+      forecastGuestGap: guestGap,
+      forecastTableGap: tableGap,
+      judgment: closingStage
+        ? fullOutcome
+          ? "今天补回了晚市顾客，实际经营结果已经确认。"
+          : "今天还有行动没有闭环，先按真实结果复盘。"
+        : stageJudgment,
+      evidence: stageEvidence,
+      nextRecheckAt: stage === "completed" ? "明日08:40" : recallOnly ? "17:10" : snapshot.nextRecheckAt,
+    },
+    dailyReview: closingStage
+      ? {
+          ...state.dailyReview,
+          actualRevenue: closingActual,
+          outcome: fullOutcome ? "improved" : "partial",
+          conclusions: fullOutcome
+            ? state.dailyReview.conclusions
+            : [
+                "会员召回尚未完成区域验收，不能算作已追回顾客。",
+                "今日实际收官低于目标，预测改善没有当作真实收入。",
+                "明早先完成未闭环证据，再复盘晚市到店。",
+              ],
+          remainingItems: fullOutcome ? state.dailyReview.remainingItems : ["会员召回证据待验收", "晚市现场体验待回传"],
+          tomorrowFirstAction: fullOutcome ? "08:40复盘会员召回到店率" : "08:35补齐昨日未闭环证据",
+        }
+      : state.dailyReview,
+  };
 }
 
 export const actionStatusLabel: Record<ActionStatus, string> = {

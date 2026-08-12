@@ -118,12 +118,12 @@ function HQToday({ flow }: { flow: FlowControls }) {
   return (
     <>
       <AppBrandHeader subtitle="总部经营中心 · 8月11日" />
-      <HQIntro label="跨区域重复问题" title="6家店正在重复发生同一件事" body="总部不追单店细节，先校准可落地的标准行动。" />
+      <HQIntro label="跨区域重复问题" title="会员召回动作已在6家店验证" body="先看哪些动作有效、哪些案例待沉淀，再决定是否发布新策略。" />
       <section className="hq-pattern-card">
-        <span><MagicWandIcon />AI归纳 · 待业务确认</span>
+        <span><MagicWandIcon />AI归纳 · 总部待确认沉淀</span>
         <h2>{issue.title}</h2>
         <p>{issue.affectedRegions}个区域、{issue.affectedStores}家门店；{issue.translatedImpact}。</p>
-        <div><small>当前标准动作</small><b>{template.title} v{template.version}.0</b></div>
+        <div><small>当前覆盖</small><b>{template.title} v{template.version}.0 · 6家演示门店</b></div>
         <PrimaryButton onClick={() => flow.push(strategyDetailScreen)}>校准行动模板</PrimaryButton>
         <HumanConfirmNote text="AI只提出修改建议，总部业务部门确认后才发布" />
       </section>

@@ -2,6 +2,80 @@ export type RoleId = "storeManager" | "regionalManager" | "headquarters";
 
 export type OperatingMomentId = "preOpen" | "lunch" | "afternoon" | "dinner" | "closing";
 
+export type OperatingStageId =
+  | "morningBrief"
+  | "morningMeeting"
+  | "lunchReview"
+  | "afternoonDecision"
+  | "dinnerRecovery"
+  | "dinnerExperience"
+  | "closingReview"
+  | "completed";
+
+export type OperatingSnapshot = {
+  stage: OperatingStageId;
+  time: string;
+  currentRevenue: number | null;
+  expectedRevenueNow: number | null;
+  forecastRevenue: number;
+  actualRevenue: number | null;
+  guestGap: number;
+  tableGap: number;
+  judgment: string;
+  evidence: string[];
+  nextRecheckAt: string;
+};
+
+export type GapProgress = {
+  initialGuests: number;
+  initialTables: number;
+  recoveredGuests: number;
+  recoveredTables: number;
+  remainingGuests: number;
+  remainingTables: number;
+  forecastBefore: number;
+  forecastAfter: number;
+};
+
+export type ActionImpact = {
+  actionId: string;
+  recoveredGuests: number;
+  recoveredTables: number;
+  forecastLift: number;
+  actualRevenueLift: 0;
+  measuredAt: string;
+  status: "expected" | "measured" | "verified";
+};
+
+export type KnowledgeCase = {
+  id: string;
+  topic: "traffic" | "rating" | "people" | "product" | "support";
+  title: string;
+  judgment: string;
+  result: string;
+  sourceType: "总部SOP" | "优秀门店案例" | "历史复盘" | "待确认口径";
+  sourceNote: string;
+  applicableStages: OperatingStageId[];
+  applicableWhen: string[];
+  disabledWhen: string[];
+  evidenceRequired: string[];
+  actions: string[];
+  reviewStatus: "published" | "draft" | "pendingVerification";
+  version: number;
+  imageUrl?: string;
+  imageAlt?: string;
+};
+
+export type GrowthEvidence = {
+  id: string;
+  label: string;
+  trend: string;
+  reason: string;
+  actionId: string;
+  evidenceId?: string;
+  earned: boolean;
+};
+
 export type MetricDefinition = {
   code: string;
   name: string;
@@ -93,6 +167,7 @@ export type ActionInstance = {
   approvalRecordIds: string[];
   recheckAt: string;
   result?: string;
+  impact?: ActionImpact;
 };
 
 export type WorkRequest = {
@@ -119,6 +194,11 @@ export type Evidence = {
   assetUrl?: string;
   aiResult: "pending" | "passed" | "needsMore" | "anomaly";
   aiNote: string;
+  inspected?: {
+    cleanliness?: string;
+    staffing?: string;
+    waitingRisk?: string;
+  };
 };
 
 export type ApprovalRecord = {
@@ -170,13 +250,7 @@ export type DailyReview = {
   conclusions: string[];
   tomorrowFirstAction: string;
   generated: boolean;
-};
-
-export type ManagerCapability = {
-  id: "operations" | "customer" | "people" | "execution";
-  label: string;
-  value: number;
-  evidence: string;
+  outcome: "pending" | "improved" | "partial";
 };
 
 export type Notification = {
@@ -220,9 +294,12 @@ export type AuditEvent = {
 };
 
 export type TerminalState = {
-  schemaVersion: 1;
+  schemaVersion: 2;
   role: RoleId;
   operatingMoment: OperatingMomentId;
+  operatingStage: OperatingStageId;
+  snapshots: OperatingSnapshot[];
+  gapProgress: GapProgress;
   activeTabs: Record<RoleId, string>;
   brief: DailyBrief;
   signals: BusinessSignal[];
@@ -233,7 +310,8 @@ export type TerminalState = {
   evidence: Evidence[];
   approvals: ApprovalRecord[];
   benchmarks: BenchmarkSnapshot[];
-  capabilities: ManagerCapability[];
+  knowledgeCases: KnowledgeCase[];
+  growthEvidence: GrowthEvidence[];
   notifications: Notification[];
   regionStores: RegionStore[];
   repeatedIssues: RepeatedIssue[];

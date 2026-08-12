@@ -19,7 +19,7 @@ import type {
   TerminalState,
 } from "../../domain/types";
 
-const STORAGE_KEY = "zhoumapo-manager-assistant-final-v1";
+const STORAGE_KEY = "zhoumapo-manager-assistant-final-v2";
 
 type OperatingOSContextValue = {
   state: TerminalState;
@@ -53,7 +53,7 @@ function restoreState() {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return freshDemoState();
     const parsed = JSON.parse(raw) as TerminalState;
-    return parsed.schemaVersion === 1 ? parsed : freshDemoState();
+    return parsed.schemaVersion === 2 ? parsed : freshDemoState();
   } catch {
     return freshDemoState();
   }
@@ -133,7 +133,7 @@ export function OperatingOSProvider({ children }: PropsWithChildren) {
     actionId,
     type,
     submittedBy: actorForRole(state.role),
-    submittedAt: actionId === "member-recall" ? "17:02" : "19:08",
+    submittedAt: actionId === "member-recall" ? "17:02" : actionId === "reservation-followup" ? "17:04" : "19:08",
     summary,
     assetUrl,
     aiResult: "pending",

@@ -55,7 +55,11 @@ function detailScreen(id: string, title: string, render: (flow: FlowControls) =>
 }
 
 const storeDetailScreen = detailScreen("region-store-detail", "门店经营上下文", (flow) => <StoreDetail flow={flow} />);
-const reviewEvidenceScreen = detailScreen("region-evidence-review", "人工验收证据", (flow) => <EvidenceReview flow={flow} />);
+const reviewEvidenceScreen = (actionId?: string) => detailScreen(
+  `region-evidence-review-${actionId ?? "current"}`,
+  "人工验收证据",
+  (flow) => <EvidenceReview flow={flow} actionId={actionId} />,
+);
 const replyRequestScreen = detailScreen("region-request-reply", "处理门店求助", (flow) => <RequestReply flow={flow} />);
 
 export default function RegionalManagerApp() {
@@ -119,10 +123,11 @@ function RegionToday({ flow }: { flow: FlowControls }) {
   const { state } = useOperatingOS();
   const reviews = getPendingRegionalReviews(state);
   const requests = getPendingRegionalRequests(state);
+  const sansheng = state.regionStores.find((item) => item.id === "sansheng")!;
   return (
     <>
       <AppBrandHeader subtitle="林阳 · 区域经理 · 8月11日" />
-      <RegionIntro label="今天只看必须介入" title="有2类事情需要你处理" body="不先看区域大盘，先处理店长求助与待验收证据。" />
+      <RegionIntro label="今天只看必须介入" title={requests.length ? `三盛广场店还差${sansheng.guestGap}位顾客` : reviews.length ? "有一份证据等你验收" : "门店行动正在执行"} body={requests.length ? "黄店长已做基础行动，但还卡在区域资源支持。" : "不先看区域大盘，先把求助和证据闭环。"} />
       {requests.length ? (
         <section className="region-intervention-card urgent">
           <span><PaperPlaneIcon />门店求助</span>
@@ -140,9 +145,9 @@ function RegionToday({ flow }: { flow: FlowControls }) {
       {reviews.length ? (
         <section className="region-intervention-card review">
           <span><FileTextIcon />待人工验收</span>
-          <h2>会员召回证据已通过AI初验</h2>
-          <p>触达180位会员，新增预约19桌；需要你确认或退回。</p>
-          <button type="button" onClick={() => flow.push(reviewEvidenceScreen)}>查看证据 <ChevronRightIcon /></button>
+          <h2>{reviews[0].title}已通过AI初验</h2>
+          <p>{reviews.length}项证据等待你确认或退回，验收后才计算经营影响。</p>
+          <button type="button" onClick={() => flow.push(reviewEvidenceScreen(reviews[0].id))}>查看证据 <ChevronRightIcon /></button>
         </section>
       ) : (
         <section className="region-intervention-card quiet">
@@ -191,7 +196,7 @@ function RegionTasks({ flow }: { flow: FlowControls }) {
       <AppBrandHeader subtitle="区域行动与人工验收" />
       <RegionIntro label="证据先于结论" title="待你确认的闭环" body="AI只检查完整性，正式验收必须由区域经理完成。" />
       {reviews.length ? reviews.map((item) => (
-        <button type="button" className="regional-review-row" key={item.id} onClick={() => flow.push(reviewEvidenceScreen)}>
+        <button type="button" className="regional-review-row" key={item.id} onClick={() => flow.push(reviewEvidenceScreen(item.id))}>
           <FileTextIcon /><span><b>{item.title}</b><small>黄店长 · AI初验通过 · 待人工确认</small></span><StatusPill status={item.status} /><ChevronRightIcon />
         </button>
       )) : <EmptyState title="暂无待验收证据" body="店长回传后会自动出现在这里。" />}
@@ -240,13 +245,14 @@ function StoreDetail({ flow }: { flow: FlowControls }) {
   const { state } = useOperatingOS();
   const request = state.workRequests[0];
   const review = getPendingRegionalReviews(state)[0];
+  const sansheng = state.regionStores.find((item) => item.id === "sansheng")!;
   return (
     <MobileScroll className="final-scroll">
       <main className="final-detail-page">
         <section className="region-store-context-hero">
           <span>三盛广场演示店 · 黄店长</span>
-          <h1>晚市预计少{state.brief.forecastGuestGap}位顾客</h1>
-          <p>约{state.brief.forecastTableGap}桌，预计收官{money(state.brief.forecastRevenue)}；当前营业额不因行动预测而改变。</p>
+          <h1>晚市预计还少{sansheng.guestGap}位顾客</h1>
+          <p>约{sansheng.tableGap}桌，预计收官{money(state.brief.forecastRevenue)}；当前营业额不因行动预测而改变。</p>
         </section>
         <SectionHeading title="AI判断依据" meta="08:30更新" />
         <section className="context-timeline">
@@ -255,7 +261,7 @@ function StoreDetail({ flow }: { flow: FlowControls }) {
           <div><b>门店动作</b><span>会员召回已进入执行</span></div>
         </section>
         {request.status === "pendingRegional" ? <PrimaryButton onClick={() => flow.push(replyRequestScreen)}>处理黄店长求助</PrimaryButton> : null}
-        {review ? <PrimaryButton onClick={() => flow.push(reviewEvidenceScreen)}>验收会员召回证据</PrimaryButton> : null}
+        {review ? <PrimaryButton onClick={() => flow.push(reviewEvidenceScreen(review.id))}>验收{review.title}</PrimaryButton> : null}
         <section className="benchmark-detail"><b>{state.benchmarks[0].translatedGap}</b><p>仅匿名展示，不显示优秀门店真实名称。</p></section>
       </main>
     </MobileScroll>
@@ -301,9 +307,11 @@ function RequestReply({ flow }: { flow: FlowControls }) {
   );
 }
 
-function EvidenceReview({ flow }: { flow: FlowControls }) {
+function EvidenceReview({ flow, actionId }: { flow: FlowControls; actionId?: string }) {
   const { state, dispatch, approval, showToast } = useOperatingOS();
-  const item = getPendingRegionalReviews(state)[0] ?? state.actions.find((action) => action.id === "member-recall")!;
+  const item = state.actions.find((action) => action.id === actionId)
+    ?? getPendingRegionalReviews(state)[0]
+    ?? state.actions.find((action) => action.id === "member-recall")!;
   const proof = getEvidenceForAction(state, item.id).at(-1);
 
   const approve = () => {
@@ -346,7 +354,7 @@ function EvidenceReview({ flow }: { flow: FlowControls }) {
           <span><CheckCircledIcon />新增预约可核对</span>
           <span><CheckCircledIcon />门店与时间一致</span>
         </section>
-        {proof ? <div className="two-action-grid"><SecondaryButton tone="danger" onClick={reject}>退回补充</SecondaryButton><PrimaryButton onClick={approve}>确认闭环</PrimaryButton></div> : null}
+        {proof ? <div className="two-action-grid"><SecondaryButton tone="danger" onClick={reject}>退回补充</SecondaryButton><PrimaryButton onClick={approve}>确认这项闭环</PrimaryButton></div> : null}
         <HumanConfirmNote text="AI初验通过，不代表区域经理已验收" />
       </main>
     </MobileScroll>

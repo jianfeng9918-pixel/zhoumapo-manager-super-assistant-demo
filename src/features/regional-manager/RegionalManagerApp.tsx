@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   BellIcon,
   CheckCircledIcon,
@@ -17,6 +17,7 @@ import {
 import { FlowStack, MobileScroll, type FlowControls, type FlowScreen } from "../../mobile";
 import { actionStatusLabel } from "../../domain/reducer";
 import { getEvidenceForAction, getPendingRegionalRequests, getPendingRegionalReviews, money } from "../../domain/selectors";
+import type { OperatingReport } from "../../domain/types";
 import { useOperatingOS } from "../shared/OperatingOSProvider";
 import {
   AIWorking,
@@ -61,6 +62,7 @@ const reviewEvidenceScreen = (actionId?: string) => detailScreen(
   (flow) => <EvidenceReview flow={flow} actionId={actionId} />,
 );
 const replyRequestScreen = detailScreen("region-request-reply", "处理门店求助", (flow) => <RequestReply flow={flow} />);
+const regionReportScreen = detailScreen("region-operating-report", "区域经营复盘", (flow) => <RegionOperatingReport flow={flow} />);
 
 export default function RegionalManagerApp() {
   const { busy, toast } = useOperatingOS();
@@ -159,6 +161,7 @@ function RegionToday({ flow }: { flow: FlowControls }) {
       <SectionHeading title="需要关注的门店" meta="按缺口与求助排序" />
       <StoreRow store={state.regionStores[1]} onClick={() => flow.push(storeDetailScreen)} />
       <StoreRow store={state.regionStores[0]} onClick={() => flow.push(storeDetailScreen)} />
+      <button type="button" className="role-report-entry" onClick={() => flow.push(regionReportScreen)}><DashboardIcon /><span><small>区域7日经营复盘</small><b>看跨店重复问题与行动效果</b></span><ChevronRightIcon /></button>
     </>
   );
 }
@@ -183,8 +186,32 @@ function RegionStores({ flow }: { flow: FlowControls }) {
       <section className="region-store-list-final">
         {sorted.map((store) => <StoreRow key={store.id} store={store} onClick={() => flow.push(storeDetailScreen)} />)}
       </section>
+      <button type="button" className="plain-wide-button" onClick={() => flow.push(regionReportScreen)}>查看区域经营报告 <ChevronRightIcon /></button>
       <DecisionSafety title="对标隐私" />
     </>
+  );
+}
+
+function RegionOperatingReport({ flow }: { flow: FlowControls }) {
+  const { state, adapters } = useOperatingOS();
+  const [report, setReport] = useState<OperatingReport | null>(null);
+  useEffect(() => {
+    let active = true;
+    adapters.reporting.listReports("region", state).then((items) => active && setReport(items[0]));
+    return () => { active = false; };
+  }, [adapters, state.regionStores, state.actions]);
+  if (!report) return <MobileScroll className="final-scroll"><main className="final-detail-page"><AIWorking label="正在汇总6家门店经营结果" /></main></MobileScroll>;
+  const max = Math.max(...report.series.map((item) => item.value), 1);
+  return (
+    <MobileScroll className="final-scroll"><main className="final-detail-page">
+      <section className="role-report-hero"><DashboardIcon /><span><small>{report.period} · 匿名展示</small><h1>{report.conclusion}</h1><p>{report.hero.label} <b>{report.hero.value}</b></p></span></section>
+      <section className="role-report-evidence">{report.evidence.map((item) => <div key={item.label}><small>{item.label}</small><b>{item.value}</b><span>{item.note}</span></div>)}</section>
+      <SectionHeading title="门店缺口排序" meta="单位：桌" />
+      <section className="report-series-list compact-role-series">{report.series.map((point) => <div key={point.label}><span><b>{point.label}</b><small>{point.value}桌</small></span><progress max={max} value={point.value} /><em>{point.value > 20 ? "优先介入" : "持续观察"}</em></div>)}</section>
+      <section className="regional-effect-summary"><CheckCircledIcon /><span><small>本周有效动作</small><h2>会员召回已有1项真实到店结果</h2><p>8月8日确认9桌、23位顾客实际到店；其余门店不把预约预测算成实际。</p></span></section>
+      <PrimaryButton onClick={() => flow.replace(storeDetailScreen)}>查看最需介入门店</PrimaryButton>
+      <SecondaryButton onClick={() => flow.pop()}>回到门店排序</SecondaryButton>
+    </main></MobileScroll>
   );
 }
 

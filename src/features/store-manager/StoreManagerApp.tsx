@@ -11,6 +11,7 @@ import {
   ClipboardIcon,
   ClockIcon,
   FileTextIcon,
+  DownloadIcon,
   HomeIcon,
   InfoCircledIcon,
   LightningBoltIcon,
@@ -33,7 +34,17 @@ import {
   getUnreadCount,
   money,
 } from "../../domain/selectors";
-import type { ActionInstance, BusinessSignal, OperatingMomentId } from "../../domain/types";
+import type {
+  ActionEffectRecord,
+  ActionInstance,
+  BusinessSignal,
+  OperatingMomentId,
+  OperatingReport,
+  ReportAnswer,
+  ReportExport,
+  ReportId,
+  ReportQuestionId,
+} from "../../domain/types";
 import { useOperatingOS } from "../shared/OperatingOSProvider";
 import {
   AIWorking,
@@ -87,6 +98,17 @@ const experienceScreen = detailScreen("final-experience", "晚市顾客体验", 
 const supportRequestScreen = detailScreen("final-support-request", "向区域申请支持", (flow) => <SupportRequestFlow flow={flow} />);
 const closingReviewScreen = detailScreen("final-closing-review", "今日经营复盘", (flow) => <ClosingReviewFlow flow={flow} />);
 const lunchInspectionScreen = detailScreen("final-lunch-inspection", "午市现场复查", (flow) => <LunchInspectionFlow flow={flow} />);
+
+function reportDetailScreen(reportId: ReportId) {
+  return detailScreen(`report-${reportId}`, "经营报告", (flow) => <ReportDetailScreen flow={flow} reportId={reportId} />);
+}
+
+function reportExportScreen(reportId: ReportId) {
+  return detailScreen(`report-export-${reportId}`, "生成经营简报", (flow) => <ReportExportScreen flow={flow} reportId={reportId} />);
+}
+
+const reportQuestionScreen = detailScreen("report-question", "问经营数据", (flow) => <ReportQuestionScreen flow={flow} />);
+const actionEffectScreen = detailScreen("report-action-effect", "行动效果账本", (flow) => <ActionEffectLedger flow={flow} />);
 
 function actionScreen(id: string) {
   if (id === "member-recall") return memberRecallScreen;
@@ -258,40 +280,74 @@ function TodayScreen({ flow }: { flow: FlowControls }) {
 }
 
 function DataScreen({ flow }: { flow: FlowControls }) {
-  const { state } = useOperatingOS();
-  const answers = [
-    { question: "今天能不能达标？", answer: `按现在情况，预计还差${state.brief.forecastTableGap}桌、${state.brief.forecastGuestGap}位顾客。`, icon: TargetIcon },
-    { question: "差距从哪里来？", answer: "客单价没有下降，主要是晚市预约和自然到店不足。", icon: ActivityLogIcon },
-    { question: "现在应该做什么？", answer: "先召回会员，再跟进未确认预约，17:00复查。", icon: LightningBoltIcon },
-  ];
+  const { state, adapters } = useOperatingOS();
+  const [reports, setReports] = useState<OperatingReport[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    adapters.reporting.listReports("store", state).then((items) => active && setReports(items));
+    return () => { active = false; };
+  }, [adapters, state.operatingStage, state.brief.forecastRevenue, state.actionEffects]);
+
+  const today = reports.find((item) => item.id === "today");
+  const quickReports = reports.filter((item) => ["sevenDay", "month"].includes(item.id));
+  const topics = reports.filter((item) => ["traffic", "product", "reputation", "member"].includes(item.id));
+  const effect = reports.find((item) => item.id === "actionEffect");
   return (
     <>
-      <AppBrandHeader subtitle="经营答案 · 08:30更新" onNotifications={() => flow.push(notificationsScreen)} />
-      <div className="page-title-block"><span>不用自己分析报表</span><h1>AI直接回答经营问题</h1><p>金额、渠道和公式放在“为什么”里，需要时再看。</p></div>
-      <section className="answer-list">
-        {answers.map((item) => {
-          const Icon = item.icon;
-          return (
-            <button type="button" key={item.question} onClick={() => flow.push(dataAnswerScreen)}>
-              <Icon /><span><small>{item.question}</small><b>{item.answer}</b></span><ChevronRightIcon />
-            </button>
-          );
-        })}
+      <AppBrandHeader subtitle="经营报告中心 · 经营结果可追溯" onNotifications={() => flow.push(notificationsScreen)} />
+      <div className="report-center-title">
+        <span>AI已翻译经营数据</span>
+        <h1>先看结论，再看报表</h1>
+        <button type="button" onClick={() => flow.push(reportQuestionScreen)}><MagicWandIcon />直接问经营数据</button>
+      </div>
+
+      {today ? (
+        <button type="button" className="report-answer-hero" onClick={() => flow.push(reportDetailScreen("today"))}>
+          <span><TargetIcon />今天能不能达标？</span>
+          <h2>{today.conclusion}</h2>
+          <div>
+            {today.evidence.map((item) => <span key={item.label} className={`tone-${item.tone}`}><small>{item.label}</small><b>{item.value}</b></span>)}
+          </div>
+          <p>查看完整判断、趋势与下一步 <ChevronRightIcon /></p>
+        </button>
+      ) : <AIWorking label="正在生成经营报告" />}
+
+      <SectionHeading title="经营周期报告" meta="结论 → 证据 → 行动" />
+      <section className="period-report-list">
+        {quickReports.map((report) => (
+          <button type="button" key={report.id} onClick={() => flow.push(reportDetailScreen(report.id))}>
+            <CalendarIcon /><span><small>{report.period}</small><b>{report.title}</b><p>{report.conclusion}</p></span><ChevronRightIcon />
+          </button>
+        ))}
       </section>
-      <section className="benchmark-card">
-        <span>匿名对标</span>
-        <h2>做到区域平均，可多到店约6桌</h2>
-        <p>{state.benchmarks[0].regionAverage}；{state.benchmarks[0].anonymousStore}。</p>
-        <button type="button" onClick={() => flow.push(dataAnswerScreen)}>查看计算依据 <ChevronRightIcon /></button>
+
+      <SectionHeading title="经营专题" meta="需要时再下钻" />
+      <section className="topic-report-list">
+        {topics.map((report) => (
+          <button type="button" key={report.id} onClick={() => flow.push(reportDetailScreen(report.id))}>
+            <span className={`tone-${report.hero.tone}`}>{report.id === "traffic" ? <PersonIcon /> : report.id === "product" ? <LightningBoltIcon /> : report.id === "reputation" ? <SpeakerLoudIcon /> : <TargetIcon />}</span>
+            <span><b>{report.title}</b><small>{report.conclusion}</small></span>
+            <strong>{report.hero.value}</strong><ChevronRightIcon />
+          </button>
+        ))}
       </section>
-      <DecisionSafety title="数据口径" />
+
+      {effect ? (
+        <button type="button" className="effect-ledger-entry" onClick={() => flow.push(actionEffectScreen)}>
+          <CheckCircledIcon /><span><small>经营行动有没有效果？</small><b>{effect.conclusion}</b></span><ChevronRightIcon />
+        </button>
+      ) : null}
     </>
   );
 }
 
 function TasksScreen({ flow }: { flow: FlowControls }) {
   const { state } = useOperatingOS();
-  const visibleActions = state.actions.filter((item) => item.id !== "regional-support" || item.released);
+  const visibleActions = state.actions.filter((item) =>
+    (item.id !== "regional-support" || item.released)
+    && (!item.id.startsWith("product-") || item.released),
+  );
   const currentAction = visibleActions.find((item) => item.status !== "closed") ?? visibleActions.at(-1)!;
   const nextAction = visibleActions.find((item) => item.time > currentAction.time && item.status !== "closed");
   return (
@@ -455,6 +511,195 @@ function BusinessAnswerScreen({ flow }: { flow: FlowControls }) {
         </section>
         {explanation ? <ResultCard title={explanation.summary} body={explanation.nextAction} impact="预计补回19至25桌" next="17:00复查预约" /> : null}
         <PrimaryButton onClick={explanation ? () => flow.push(memberRecallScreen) : analyze}>{explanation ? "执行会员召回" : "让AI给出下一步"}</PrimaryButton>
+      </main>
+    </MobileScroll>
+  );
+}
+
+function reportIcon(id: ReportId) {
+  if (id === "traffic" || id === "member") return <PersonIcon />;
+  if (id === "product") return <LightningBoltIcon />;
+  if (id === "reputation") return <SpeakerLoudIcon />;
+  if (id === "actionEffect") return <CheckCircledIcon />;
+  if (id === "month" || id === "sevenDay") return <CalendarIcon />;
+  return <TargetIcon />;
+}
+
+function ReportDetailScreen({ flow, reportId }: { flow: FlowControls; reportId: ReportId }) {
+  const { state, dispatch, adapters, run, approval, showToast } = useOperatingOS();
+  const [report, setReport] = useState<OperatingReport | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    adapters.reporting.getReport(reportId, "store", state).then((item) => active && setReport(item));
+    return () => { active = false; };
+  }, [adapters, reportId, state.operatingStage, state.brief.forecastRevenue, state.actionEffects]);
+
+  if (!report) return <MobileScroll className="final-scroll"><main className="final-detail-page"><AIWorking label="核对经营数据 → 生成经营结论" /></main></MobileScroll>;
+  const maximum = Math.max(...report.series.map((item) => Math.max(item.value, item.benchmark ?? 0)), 1);
+  const actionItem = report.recommendedActionId ? getAction(state, report.recommendedActionId) : undefined;
+  const addAction = async () => {
+    if (!report.recommendedActionId || !actionItem) return;
+    await run("正在把报表结论转成经营行动", async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 420));
+      dispatch({
+        type: "addReportAction",
+        reportId: report.id,
+        actionId: report.recommendedActionId!,
+        approval: approval("action", report.recommendedActionId!, "confirmed", `确认从${report.title}加入经营剧本`),
+      });
+    });
+    showToast("已加入今日经营剧本，执行前仍需人工确认");
+    flow.replace(actionScreen(report.recommendedActionId));
+  };
+
+  return (
+    <MobileScroll className="final-scroll">
+      <main className="final-detail-page report-detail-page">
+        <section className={`report-detail-hero tone-${report.hero.tone}`}>
+          <div>{reportIcon(report.id)}<span><small>{report.period} · {report.updatedAt}更新</small><b>{report.question}</b></span></div>
+          <h1>{report.conclusion}</h1>
+          <p><strong>{report.hero.value}</strong><span>{report.hero.label}<small>{report.hero.note}</small></span></p>
+        </section>
+
+        <section className="report-evidence-grid">
+          {report.evidence.map((item) => <div key={item.label} className={`tone-${item.tone}`}><small>{item.label}</small><b>{item.value}</b><span>{item.note}</span></div>)}
+        </section>
+
+        <SectionHeading title="趋势与对照" meta={report.series[0]?.unit ? `单位：${report.series[0].unit}` : undefined} />
+        <section className="report-series-list">
+          {report.series.map((point) => (
+            <div key={point.label}>
+              <span><b>{point.label}</b><small>{point.value.toLocaleString("zh-CN")}{point.unit}</small></span>
+              <progress max={maximum} value={point.value} aria-label={`${point.label}${point.value}${point.unit}`} />
+              {point.benchmark !== undefined ? <em>参考 {point.benchmark.toLocaleString("zh-CN")}{point.unit}</em> : null}
+            </div>
+          ))}
+        </section>
+
+        <details className="report-reason-details">
+          <summary>为什么这样判断 <span>置信度{report.confidence}%</span></summary>
+          <ol>{report.reasonChain.map((reason) => <li key={reason}>{reason}</li>)}</ol>
+          <p><b>数据来源</b>{report.source}</p>
+          {report.conversionBasis ? <p><b>换算口径</b>{report.conversionBasis}</p> : null}
+          <p><b>下次复查</b>{report.recheckAt}</p>
+        </details>
+
+        {report.id === "actionEffect" ? (
+          <PrimaryButton onClick={() => flow.push(actionEffectScreen)}>查看每项行动真实效果</PrimaryButton>
+        ) : report.recommendedActionId && actionItem ? (
+          <PrimaryButton onClick={actionItem.released ? () => flow.push(actionScreen(actionItem.id)) : addAction}>
+            {actionItem.released ? "进入对应经营行动" : "人工确认并加入今日行动"}
+          </PrimaryButton>
+        ) : null}
+        <div className="report-secondary-actions">
+          <SecondaryButton onClick={() => flow.push(reportExportScreen(report.id))}>生成长图 / 简报</SecondaryButton>
+          <SecondaryButton onClick={() => flow.push(reportQuestionScreen)}>继续问AI</SecondaryButton>
+        </div>
+        <HumanConfirmNote text="报表可以由AI生成；转成行动或对外发送仍需人工确认" />
+      </main>
+    </MobileScroll>
+  );
+}
+
+const reportQuestionOptions: Array<{ id: ReportQuestionId; label: string }> = [
+  { id: "canReachTarget", label: "今天能不能达标？" },
+  { id: "whyGuestsLow", label: "为什么今天顾客少？" },
+  { id: "whichDish", label: "今天重点推荐哪道菜？" },
+  { id: "whichActionWorked", label: "最近哪项行动最有效？" },
+];
+
+function ReportQuestionScreen({ flow }: { flow: FlowControls }) {
+  const { state, adapters, run } = useOperatingOS();
+  const [answer, setAnswer] = useState<ReportAnswer | null>(null);
+  const ask = async (questionId: ReportQuestionId) => {
+    await run("核对经营数据 → 匹配周麻婆案例 → 生成答案", async () => {
+      setAnswer(await adapters.reporting.answerQuestion(questionId, state));
+    });
+  };
+  return (
+    <MobileScroll className="final-scroll">
+      <main className="final-detail-page report-question-page">
+        <section className="report-question-hero"><MagicWandIcon /><span><small>AI经营问数</small><h1>直接问经营问题</h1><p>不用记指标名，系统会给结论、证据和下一步。</p></span></section>
+        <div className="report-question-options">
+          {reportQuestionOptions.map((item) => <button type="button" key={item.id} className={answer?.questionId === item.id ? "active" : ""} onClick={() => ask(item.id)}>{item.label}<ChevronRightIcon /></button>)}
+        </div>
+        {answer ? (
+          <section className="report-answer-card">
+            <span>AI回答 · 演示数据</span><h2>{answer.answer}</h2>
+            <ul>{answer.evidence.map((item) => <li key={item}><CheckCircledIcon />{item}</li>)}</ul>
+            <div><small>建议下一步</small><b>{answer.nextAction}</b></div>
+            <PrimaryButton onClick={() => flow.push(reportDetailScreen(answer.reportId))}>查看对应详细报表</PrimaryButton>
+            {answer.recommendedActionId ? <SecondaryButton onClick={() => flow.push(actionScreen(answer.recommendedActionId!))}>进入经营行动</SecondaryButton> : null}
+          </section>
+        ) : <p className="report-question-hint"><SpeakerLoudIcon />正式版可直接说：“为什么今天顾客少？”</p>}
+      </main>
+    </MobileScroll>
+  );
+}
+
+function ReportExportScreen({ flow, reportId }: { flow: FlowControls; reportId: ReportId }) {
+  const { state, dispatch, adapters, run, approval, showToast } = useOperatingOS();
+  const latest = state.reportExports.find((item) => item.reportId === reportId);
+  const [generated, setGenerated] = useState<ReportExport | null>(latest ?? null);
+  const kinds: Array<{ id: ReportExport["kind"]; title: string; body: string }> = [
+    { id: "longImage", title: "经营战报长图", body: "适合发门店工作群" },
+    { id: "dailyBrief", title: "店长经营日报", body: "结论、动作与复查结果" },
+    { id: "weeklyReview", title: "7日经营复盘", body: "适合区域周复盘" },
+    { id: "voiceBrief", title: "90秒语音简报", body: "通勤时快速听经营重点" },
+  ];
+  const generate = async (kind: ReportExport["kind"]) => {
+    const entityId = `report-export-${state.reportExports.length + 1}`;
+    const record = approval("decision", entityId, "confirmed", "确认生成经营简报草稿，不自动发送");
+    const result = await run("正在整理结论、证据与下一步", () => adapters.reporting.generateExport(reportId, kind, state));
+    if (!result) return;
+    const exportRecord: ReportExport = { ...result, id: entityId, createdBy: "黄店长", approvalRecordId: record.id };
+    dispatch({ type: "createReportExport", report: exportRecord, approval: record });
+    setGenerated(exportRecord);
+    showToast("简报草稿已生成，未自动发送");
+  };
+  return (
+    <MobileScroll className="final-scroll">
+      <main className="final-detail-page">
+        <section className="export-intro-card"><DownloadIcon /><span><small>只生成草稿，不自动发送</small><h1>选择交付形式</h1><p>所有数据、结论和下一步会按同一经营口径生成。</p></span></section>
+        <section className="export-kind-list">
+          {kinds.map((kind) => <button type="button" key={kind.id} onClick={() => generate(kind.id)}><FileTextIcon /><span><b>{kind.title}</b><small>{kind.body}</small></span><ChevronRightIcon /></button>)}
+        </section>
+        {generated ? <ResultCard title={`${generated.title}已生成`} body={generated.summary} impact="仅生成演示草稿，未发送到任何真实群" next="人工确认后再转发"><SecondaryButton onClick={() => { showToast("已打开演示预览"); flow.pop(); }}>查看报告原页</SecondaryButton></ResultCard> : null}
+        <DecisionSafety title="报告发送边界" />
+      </main>
+    </MobileScroll>
+  );
+}
+
+function effectStatusClass(item: ActionEffectRecord) {
+  if (item.status === "verified") return "verified";
+  if (item.status === "measuring") return "measuring";
+  return "forecast";
+}
+
+function ActionEffectLedger({ flow }: { flow: FlowControls }) {
+  const { state } = useOperatingOS();
+  return (
+    <MobileScroll className="final-scroll">
+      <main className="final-detail-page">
+        <section className="effect-ledger-hero"><CheckCircledIcon /><span><small>不是做完就算有效</small><h1>每项行动都对到真实结果</h1><p>预测、预约和实际营业严格分开。</p></span></section>
+        <section className="effect-record-list">
+          {state.actionEffects.map((item) => (
+            <article key={item.id} className={effectStatusClass(item)}>
+              <header><span>{item.verdict}</span><small>{item.executedAt}</small></header>
+              <h2>{item.title}</h2><p>{item.problem} · {item.owner}</p>
+              <div className="effect-compare">
+                <span><small>预计影响</small><b>{item.expected.tables ? `${item.expected.tables}桌 · ${item.expected.guests}人` : "改善顾客体验"}</b><em>{item.expected.forecastLift ? `预计+¥${item.expected.forecastLift.toLocaleString("zh-CN")}` : "不承诺营业额"}</em></span>
+                <ChevronRightIcon />
+                <span><small>实际结果</small><b>{item.status === "verified" ? item.measured.tables ? `${item.measured.tables}桌 · ${item.measured.guests}人` : "问题未重复" : "等待复查"}</b><em>{item.measured.actualRevenue ? `实际+¥${item.measured.actualRevenue.toLocaleString("zh-CN")}` : "实际收入未计入"}</em></span>
+              </div>
+              <div className="effect-note"><FileTextIcon /><span>{item.measured.note}</span></div>
+              <footer><small>{item.source}</small><b>{item.reusable ? "可复用" : `${item.recheckAt}复查`}</b></footer>
+            </article>
+          ))}
+        </section>
+        <SecondaryButton onClick={() => flow.push(reportExportScreen("actionEffect"))}>生成行动效果复盘</SecondaryButton>
       </main>
     </MobileScroll>
   );

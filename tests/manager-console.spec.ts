@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-const storageKey = "zhoumapo-manager-assistant-final-v2";
+const storageKey = "zhoumapo-manager-assistant-final-v3";
 
 async function openDemo(page: Page, width = 393, height = 852) {
   await page.setViewportSize({ width, height });
@@ -132,6 +132,99 @@ test("终局版首屏在393×852内同时出现判断、唯一主行动和五栏
   expect(primaryBox?.y).toBeLessThan(navBox?.y ?? 0);
 });
 
+test("数据页是经营报告中心，可下钻今日、7日、本月和四个经营专题", async ({ page }) => {
+  await openDemo(page);
+  await page.getByRole("button", { name: "数据", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "先看结论，再看报表" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /今天能不能达标/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /7日经营复盘/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /本月目标进度/ })).toBeVisible();
+  for (const label of ["客流与桌数", "菜品经营", "顾客口碑", "会员经营"]) {
+    await expect(page.getByRole("button", { name: new RegExp(label) })).toBeVisible();
+  }
+});
+
+test("报表详情按结论、证据、趋势、原因和行动五层展开", async ({ page }) => {
+  await openDemo(page);
+  await page.getByRole("button", { name: "数据", exact: true }).click();
+  await page.getByRole("button", { name: /今天能不能达标/ }).click();
+  await expect(page.getByRole("heading", { name: /预计还差25桌、65位顾客/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "趋势与对照" })).toBeVisible();
+  await page.getByText(/为什么这样判断/).last().click();
+  await expect(page.getByText("昨天晚市比正常少32位顾客")).toBeVisible();
+  await expect(page.getByText("POS、预约、会员与历史同星期 · 确定性模拟")).toBeVisible();
+  await expect(page.getByRole("button", { name: /人工确认并加入今日行动|进入对应经营行动/ })).toBeVisible();
+});
+
+test("AI问数给出答案、证据、下一步并可进入对应报表", async ({ page }) => {
+  await openDemo(page);
+  await page.getByRole("button", { name: "数据", exact: true }).click();
+  await page.getByRole("button", { name: "直接问经营数据" }).click();
+  await page.getByRole("button", { name: /为什么今天顾客少/ }).click();
+  await waitForBusy(page);
+  await expect(page.getByRole("heading", { name: /曝光正常，但预约确认和自然到店都偏少/ })).toBeVisible();
+  await expect(page.getByText("晚市预约少11桌")).toBeVisible();
+  await page.getByRole("button", { name: "查看对应详细报表" }).click();
+  await expect(page.getByRole("heading", { name: /每100位看过门店的顾客/ })).toBeVisible();
+});
+
+test("菜品报表可经人工确认生成行动，且保留审批记录", async ({ page }) => {
+  await openDemo(page);
+  await page.getByRole("button", { name: "数据", exact: true }).click();
+  await page.getByRole("button", { name: /菜品经营/ }).click();
+  await page.getByRole("button", { name: "人工确认并加入今日行动" }).click();
+  await waitForBusy(page);
+  const state = await page.evaluate((key) => JSON.parse(window.localStorage.getItem(key)!), storageKey);
+  const action = state.actions.find((item: { id: string }) => item.id === "product-recommendation");
+  expect(action.released).toBe(true);
+  expect(action.status).toBe("pendingConfirmation");
+  expect(state.approvals.some((item: { entityId: string }) => item.entityId === "product-recommendation")).toBe(true);
+});
+
+test("报告导出只生成草稿，不模拟真实发送", async ({ page }) => {
+  await openDemo(page);
+  await page.getByRole("button", { name: "数据", exact: true }).click();
+  await page.getByRole("button", { name: /今天能不能达标/ }).click();
+  await page.getByRole("button", { name: "生成长图 / 简报" }).click();
+  await page.getByRole("button", { name: /经营战报长图/ }).click();
+  await waitForBusy(page);
+  await expect(page.getByRole("heading", { name: /经营战报长图已生成/ })).toBeVisible();
+  await expect(page.getByText("仅生成演示草稿，未发送到任何真实群")).toBeVisible();
+  const state = await page.evaluate((key) => JSON.parse(window.localStorage.getItem(key)!), storageKey);
+  expect(state.reportExports).toHaveLength(1);
+  expect(state.reportExports[0].status).toBe("ready");
+});
+
+test("行动效果账本严格区分预计、待复查与实际营业", async ({ page }) => {
+  await openDemo(page);
+  await page.getByRole("button", { name: "数据", exact: true }).click();
+  await page.getByRole("button", { name: /经营行动有没有效果/ }).click();
+  await expect(page.getByRole("heading", { name: "每项行动都对到真实结果" })).toBeVisible();
+  await expect(page.getByText("实际+¥2,980")).toBeVisible();
+  await expect(page.getByText("实际收入未计入")).toHaveCount(2);
+  const state = await page.evaluate((key) => JSON.parse(window.localStorage.getItem(key)!), storageKey);
+  expect(state.actionEffects.find((item: { actionId: string }) => item.actionId === "member-recall").status).toBe("forecast");
+});
+
+test("区域经理可查看六店缺口与跨店行动效果报告", async ({ page }) => {
+  await openDemo(page);
+  await switchRole(page, "林阳区域经理");
+  await page.getByRole("button", { name: /区域7日经营复盘/ }).click();
+  await expect(page.getByRole("heading", { name: /6家店预计合计少/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "门店缺口排序" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "会员召回已有1项真实到店结果" })).toBeVisible();
+});
+
+test("总部可从行动效果证据进入策略校准，AI不自动发布", async ({ page }) => {
+  await openDemo(page);
+  await switchRole(page, "总部经营中心");
+  await page.getByRole("button", { name: /总部行动效果复盘/ }).click();
+  await expect(page.getByRole("heading", { name: /会员召回已在6家店重复出现/ })).toBeVisible();
+  await expect(page.getByText("只有总部人工发布后才进入正式建议")).toBeVisible();
+  await page.getByRole("button", { name: "校准并确认行动模板" }).click();
+  await expect(page.getByRole("heading", { name: "晚市会员召回" })).toBeVisible();
+});
+
 test("V6首屏采用经营语义色并只出现一个实心红色主按钮", async ({ page }) => {
   await openDemo(page);
   const visual = await page.evaluate(() => {
@@ -211,7 +304,7 @@ test("晨会闭环包含转写、漏项、负责人、接收回执与行动页",
   await openDemo(page);
   await completeMeeting(page);
   await expect(page.getByText("王小丽 · AI建议")).toBeVisible();
-  await expect(page.getByText("李主管 · AI建议")).toBeVisible();
+  await expect(page.getByRole("button", { name: /16:40.*跟进10桌未确认预约.*李主管/ })).toBeVisible();
   await backToRoot(page);
   await expect(page.getByText("3位负责人已接收晨会行动")).toHaveCount(0);
   await page.getByRole("button", { name: "查看提醒" }).click();
@@ -223,8 +316,9 @@ test("数据页用顾客和桌数回答问题，原始口径折叠在判断详�
   await page.getByRole("button", { name: "数据", exact: true }).click();
   await expect(page.getByText(/预计还差25桌、65位顾客/)).toBeVisible();
   await page.getByRole("button", { name: /今天能不能达标/ }).click();
-  await expect(page.getByRole("heading", { name: "晚市预计少65位顾客，约25桌。" })).toBeVisible();
-  await expect(page.getByText("按预计人均 ¥123、每桌2.6位顾客模拟换算")).toBeVisible();
+  await expect(page.locator("main.report-detail-page").getByRole("heading", { name: /预计还差25桌、65位顾客/ })).toBeVisible();
+  await page.getByText(/为什么这样判断/).last().click();
+  await expect(page.getByText("按预计人均¥123、每桌2.6位顾客模拟换算")).toBeVisible();
   await expect(page.getByText("置信度92%")).toBeVisible();
 });
 

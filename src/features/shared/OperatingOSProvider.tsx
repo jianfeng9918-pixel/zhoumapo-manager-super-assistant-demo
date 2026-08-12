@@ -19,7 +19,7 @@ import type {
   TerminalState,
 } from "../../domain/types";
 
-const STORAGE_KEY = "zhoumapo-manager-assistant-final-v2";
+const STORAGE_KEY = "zhoumapo-manager-assistant-final-v3";
 
 type OperatingOSContextValue = {
   state: TerminalState;
@@ -53,7 +53,7 @@ function restoreState() {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return freshDemoState();
     const parsed = JSON.parse(raw) as TerminalState;
-    return parsed.schemaVersion === 2 ? parsed : freshDemoState();
+    return parsed.schemaVersion === 3 ? parsed : freshDemoState();
   } catch {
     return freshDemoState();
   }

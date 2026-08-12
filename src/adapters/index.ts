@@ -4,5 +4,6 @@ export type {
   DecisionEngineAdapter,
   KnowledgeAdapter,
   OperatingAdapters,
+  ReportingAdapter,
   WorkflowAdapter,
 } from "./contracts";

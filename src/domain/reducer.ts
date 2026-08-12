@@ -2,6 +2,8 @@ import type {
   ActionStatus,
   ApprovalRecord,
   Evidence,
+  ReportExport,
+  ReportId,
   RoleId,
   TerminalState,
 } from "./types";
@@ -25,6 +27,8 @@ export type TerminalAction =
   | { type: "publishTemplate"; templateId: string; steps: string[]; approval: ApprovalRecord }
   | { type: "markNotification"; notificationId: string }
   | { type: "addNotification"; notification: TerminalState["notifications"][number] }
+  | { type: "addReportAction"; reportId: ReportId; actionId: string; approval: ApprovalRecord }
+  | { type: "createReportExport"; report: ReportExport; approval: ApprovalRecord }
   | { type: "completeReview"; approval: ApprovalRecord }
   | { type: "reset"; state: TerminalState };
 
@@ -71,6 +75,18 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
       return applyStage({
         ...state,
         evidence: [...state.evidence, action.evidence],
+        actionEffects: state.actionEffects.map((item) =>
+          item.actionId === "lunch-inspection"
+            ? {
+                ...item,
+                executedAt: "8月11日 12:05",
+                evidenceIds: [...item.evidenceIds, action.evidence.id],
+                status: "measuring" as const,
+                verdict: "待实际复查" as const,
+                measured: { ...item.measured, note: "照片确认传菜口等待偏久；晚市20:30复查是否重复" },
+              }
+            : item,
+        ),
         growthEvidence: state.growthEvidence.map((item) =>
           item.id === "growth-evidence" ? { ...item, earned: true, evidenceId: action.evidence.id } : item,
         ),
@@ -260,6 +276,23 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
             ? { ...item, earned: true, evidenceId: action.evidenceId, trend: "+1次有效方法" }
             : item,
         ),
+        actionEffects: state.actionEffects.map((item) => {
+          if (!changesBusinessGap || item.actionId !== action.actionId) return item;
+          return {
+            ...item,
+            executedAt: action.actionId === "member-recall" ? "8月11日 17:02" : "8月11日 17:04",
+            evidenceIds: [...item.evidenceIds, action.evidenceId],
+            status: "measuring" as const,
+            verdict: "待实际复查" as const,
+            measured: {
+              ...item.measured,
+              guests: impact?.recoveredGuests ?? 0,
+              tables: impact?.recoveredTables ?? 0,
+              actualRevenue: 0,
+              note: "已确认新增预约；实际营业额仍为0，21:30核对真实到店",
+            },
+          };
+        }),
         regionStores: state.regionStores.map((store) =>
           changesBusinessGap && store.id === "sansheng"
             ? {
@@ -441,11 +474,76 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
       };
     case "addNotification":
       return { ...state, notifications: [action.notification, ...state.notifications] };
+    case "addReportAction": {
+      const target = state.actions.find((item) => item.id === action.actionId);
+      if (!target) return state;
+      return {
+        ...state,
+        approvals: [...state.approvals, action.approval],
+        actions: state.actions.map((item) =>
+          item.id === action.actionId
+            ? {
+                ...item,
+                released: true,
+                status: item.status === "closed" ? item.status : "pendingConfirmation" as const,
+                approvalRecordIds: [...item.approvalRecordIds, action.approval.id],
+              }
+            : item,
+        ),
+        notifications: [
+          {
+            id: `notice-report-action-${action.reportId}`,
+            role: "storeManager",
+            title: "经营报表已生成一项行动",
+            body: `${target.title}已加入今日经营剧本，仍需店长人工确认执行。`,
+            createdAt: "08:32",
+            read: false,
+            target: "action",
+            entityId: action.actionId,
+          },
+          ...state.notifications,
+        ],
+        activity: appendActivity(state, action.approval.confirmedBy, `从报表${action.reportId}加入经营行动`, action.actionId),
+      };
+    }
+    case "createReportExport":
+      return {
+        ...state,
+        approvals: [...state.approvals, action.approval],
+        reportExports: [action.report, ...state.reportExports],
+        activity: appendActivity(state, action.report.createdBy, `人工确认生成${action.report.title}`, action.report.id),
+      };
     case "completeReview":
       return applyStage({
         ...state,
         approvals: [...state.approvals, action.approval],
         dailyReview: { ...state.dailyReview, generated: true },
+        actionEffects: state.actionEffects.map((item) =>
+          item.actionId === "member-recall" && item.status === "measuring"
+            ? {
+                ...item,
+                status: "verified" as const,
+                verdict: "已验证有效" as const,
+                reusable: true,
+                recheckAt: "已完成",
+                measured: {
+                  guests: 23,
+                  tables: 9,
+                  actualRevenue: 3560,
+                  note: "21:30通过POS模拟回链确认9桌、23位顾客实际到店",
+                },
+              }
+            : item.actionId === "lunch-inspection" && item.status === "measuring"
+              ? {
+                  ...item,
+                  status: "verified" as const,
+                  verdict: "已验证有效" as const,
+                  reusable: true,
+                  recheckAt: "已完成",
+                  measured: { ...item.measured, note: "晚市未重复出现等菜投诉；不单独计算营业收入" },
+                }
+              : item,
+        ),
         actions: state.actions.map((item) =>
           item.id === "closing-review"
             ? {

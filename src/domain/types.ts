@@ -285,6 +285,101 @@ export type RepeatedIssue = {
   templateId: string;
 };
 
+export type ReportId =
+  | "today"
+  | "sevenDay"
+  | "month"
+  | "traffic"
+  | "product"
+  | "reputation"
+  | "member"
+  | "actionEffect";
+
+export type ReportScope = "store" | "region" | "headquarters";
+export type ReportTone = "neutral" | "risk" | "opportunity" | "result" | "ai";
+
+export type ReportDataPoint = {
+  label: string;
+  value: number;
+  benchmark?: number;
+  unit: "元" | "桌" | "位" | "份" | "条" | "%";
+};
+
+export type OperatingReport = {
+  id: ReportId;
+  scope: ReportScope;
+  title: string;
+  period: string;
+  question: string;
+  conclusion: string;
+  hero: {
+    label: string;
+    value: string;
+    note: string;
+    tone: ReportTone;
+  };
+  evidence: Array<{ label: string; value: string; note: string; tone: ReportTone }>;
+  series: ReportDataPoint[];
+  reasonChain: string[];
+  source: string;
+  updatedAt: string;
+  confidence: number;
+  recheckAt: string;
+  conversionBasis?: string;
+  recommendedActionId?: string;
+  recommendedActionTitle?: string;
+};
+
+export type ReportQuestionId = "canReachTarget" | "whyGuestsLow" | "whichDish" | "whichActionWorked";
+
+export type ReportAnswer = {
+  questionId: ReportQuestionId;
+  question: string;
+  answer: string;
+  evidence: string[];
+  reportId: ReportId;
+  nextAction: string;
+  recommendedActionId?: string;
+};
+
+export type ActionEffectRecord = {
+  id: string;
+  actionId: string;
+  title: string;
+  problem: string;
+  owner: string;
+  executedAt: string;
+  expected: {
+    guests: number;
+    tables: number;
+    forecastLift: number;
+  };
+  measured: {
+    guests: number;
+    tables: number;
+    actualRevenue: number;
+    note: string;
+  };
+  evidenceIds: string[];
+  status: "forecast" | "measuring" | "verified";
+  verdict: "待执行" | "待实际复查" | "已验证有效" | "证据不足";
+  reusable: boolean;
+  recheckAt: string;
+  source: string;
+};
+
+export type ReportExport = {
+  id: string;
+  reportId: ReportId;
+  kind: "longImage" | "dailyBrief" | "weeklyReview" | "voiceBrief";
+  title: string;
+  summary: string;
+  status: "ready";
+  createdAt: string;
+  createdBy: string;
+  approvalRecordId: string;
+};
+
 export type AuditEvent = {
   id: string;
   time: string;
@@ -294,7 +389,7 @@ export type AuditEvent = {
 };
 
 export type TerminalState = {
-  schemaVersion: 2;
+  schemaVersion: 3;
   role: RoleId;
   operatingMoment: OperatingMomentId;
   operatingStage: OperatingStageId;
@@ -315,6 +410,9 @@ export type TerminalState = {
   notifications: Notification[];
   regionStores: RegionStore[];
   repeatedIssues: RepeatedIssue[];
+  reports: OperatingReport[];
+  actionEffects: ActionEffectRecord[];
+  reportExports: ReportExport[];
   dailyReview: DailyReview;
   meetingStage: 0 | 1 | 2 | 3 | 4;
   meetingTranscript: string[];

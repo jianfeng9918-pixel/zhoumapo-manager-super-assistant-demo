@@ -1,10 +1,11 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   BellIcon,
   CheckCircledIcon,
   ChevronRightIcon,
   ClipboardIcon,
   FileTextIcon,
+  DashboardIcon,
   GlobeIcon,
   HomeIcon,
   LockClosedIcon,
@@ -17,6 +18,7 @@ import {
 } from "@radix-ui/react-icons";
 import { FlowStack, MobileScroll, type FlowControls, type FlowScreen } from "../../mobile";
 import { getPendingHQRequests } from "../../domain/selectors";
+import type { OperatingReport } from "../../domain/types";
 import { useOperatingOS } from "../shared/OperatingOSProvider";
 import {
   AIWorking,
@@ -33,6 +35,7 @@ import {
   ResultCard,
   RoleSwitchSheet,
   RowButton,
+  SecondaryButton,
   SectionHeading,
   type TabDefinition,
 } from "../shared/ui";
@@ -53,6 +56,7 @@ function detailScreen(id: string, title: string, render: (flow: FlowControls) =>
 
 const strategyDetailScreen = detailScreen("hq-strategy-detail", "校准行动模板", (flow) => <StrategyDetail flow={flow} />);
 const hqRequestScreen = detailScreen("hq-request-detail", "总部资源需求", (flow) => <HQRequestDetail flow={flow} />);
+const hqEffectReportScreen = detailScreen("hq-effect-report", "总部效果复盘", (flow) => <HQEffectReport flow={flow} />);
 
 export default function HeadquartersApp() {
   const { busy, toast } = useOperatingOS();
@@ -131,6 +135,7 @@ function HQToday({ flow }: { flow: FlowControls }) {
       <section className="hq-secondary-pattern">
         <span>4家店</span><div><b>{state.repeatedIssues[1].title}</b><p>{state.repeatedIssues[1].translatedImpact}</p></div><ChevronRightIcon />
       </section>
+      <button type="button" className="role-report-entry hq-report-entry" onClick={() => flow.push(hqEffectReportScreen)}><DashboardIcon /><span><small>总部行动效果复盘</small><b>哪些动作有效，哪些案例值得沉淀？</b></span><ChevronRightIcon /></button>
       <DecisionSafety />
     </>
   );
@@ -166,8 +171,31 @@ function HQStrategy({ flow }: { flow: FlowControls }) {
           </button>
         ))}
       </section>
+      <button type="button" className="plain-wide-button" onClick={() => flow.push(hqEffectReportScreen)}>查看策略效果依据 <ChevronRightIcon /></button>
       <DecisionSafety title="策略发布边界" />
     </>
+  );
+}
+
+function HQEffectReport({ flow }: { flow: FlowControls }) {
+  const { state, adapters } = useOperatingOS();
+  const [report, setReport] = useState<OperatingReport | null>(null);
+  useEffect(() => {
+    let active = true;
+    adapters.reporting.listReports("headquarters", state).then((items) => active && setReport(items[0]));
+    return () => { active = false; };
+  }, [adapters, state.templates, state.actionEffects]);
+  if (!report) return <MobileScroll className="final-scroll"><main className="final-detail-page"><AIWorking label="正在核对跨区域行动效果" /></main></MobileScroll>;
+  return (
+    <MobileScroll className="final-scroll"><main className="final-detail-page">
+      <section className="role-report-hero hq"><DashboardIcon /><span><small>{report.updatedAt}更新 · 演示数据</small><h1>{report.conclusion}</h1><p>{report.hero.label} <b>{report.hero.value}</b></p></span></section>
+      <section className="role-report-evidence">{report.evidence.map((item) => <div key={item.label}><small>{item.label}</small><b>{item.value}</b><span>{item.note}</span></div>)}</section>
+      <SectionHeading title="沉淀依据" meta={`AI置信度${report.confidence}%`} />
+      <section className="hq-evidence-chain">{report.reasonChain.map((item, index) => <div key={item}><b>{index + 1}</b><span>{item}</span></div>)}</section>
+      <section className="strategy-publish-boundary"><LockClosedIcon /><span><b>只有总部人工发布后才进入正式建议</b><small>AI可以归纳有效动作，不能自行修改总部策略。</small></span></section>
+      <PrimaryButton onClick={() => flow.replace(strategyDetailScreen)}>校准并确认行动模板</PrimaryButton>
+      <SecondaryButton onClick={() => flow.pop()}>返回总部今日</SecondaryButton>
+    </main></MobileScroll>
   );
 }
 

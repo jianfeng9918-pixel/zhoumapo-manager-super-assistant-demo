@@ -6,8 +6,14 @@ import type {
   Evidence,
   KnowledgeCase,
   MetricDefinition,
+  OperatingReport,
   OperatingSnapshot,
   OperatingStageId,
+  ReportAnswer,
+  ReportExport,
+  ReportId,
+  ReportQuestionId,
+  ReportScope,
   TerminalState,
   WorkRequest,
 } from "../domain/types";
@@ -56,9 +62,21 @@ export interface KnowledgeAdapter {
   listCases(): Promise<KnowledgeCase[]>;
 }
 
+export interface ReportingAdapter {
+  listReports(scope: ReportScope, state: TerminalState): Promise<OperatingReport[]>;
+  getReport(reportId: ReportId, scope: ReportScope, state: TerminalState): Promise<OperatingReport>;
+  answerQuestion(questionId: ReportQuestionId, state: TerminalState): Promise<ReportAnswer>;
+  generateExport(
+    reportId: ReportId,
+    kind: ReportExport["kind"],
+    state: TerminalState,
+  ): Promise<Omit<ReportExport, "id" | "createdBy" | "approvalRecordId">>;
+}
+
 export type OperatingAdapters = {
   business: BusinessDataAdapter;
   workflow: WorkflowAdapter;
   decision: DecisionEngineAdapter;
   knowledge: KnowledgeAdapter;
+  reporting: ReportingAdapter;
 };

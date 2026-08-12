@@ -6,8 +6,14 @@ import type {
   Evidence,
   KnowledgeCase,
   MetricDefinition,
+  OperatingReport,
   OperatingSnapshot,
   OperatingStageId,
+  ReportAnswer,
+  ReportExport,
+  ReportId,
+  ReportQuestionId,
+  ReportScope,
   TerminalState,
   WorkRequest,
 } from "../domain/types";
@@ -18,6 +24,7 @@ import type {
   KnowledgeMatch,
   MeetingAnalysis,
   OperatingAdapters,
+  ReportingAdapter,
   WorkflowAdapter,
 } from "./contracts";
 
@@ -93,6 +100,276 @@ const signals: BusinessSignal[] = [
     confidence: 88,
     triggerRule: "同一时段出现3桌以上同类反馈",
     sourceUpdatedAt: "14:20",
+  },
+];
+
+const storeReports: OperatingReport[] = [
+  {
+    id: "today",
+    scope: "store",
+    title: "今日经营战报",
+    period: "8月11日",
+    question: "今天能不能达标？",
+    conclusion: "按当前经营节奏，预计还差25桌、65位顾客。",
+    hero: { label: "预计收官", value: "¥92,000", note: "目标 ¥100,000", tone: "risk" },
+    evidence: [
+      { label: "昨日实际", value: "¥98,600", note: "目标完成98.6%", tone: "neutral" },
+      { label: "今日缺口", value: "25桌", note: "约65位顾客", tone: "risk" },
+      { label: "客单情况", value: "+¥18", note: "不是当前主因", tone: "result" },
+    ],
+    series: [
+      { label: "12:00", value: 26800, benchmark: 30000, unit: "元" },
+      { label: "14:30", value: 48600, benchmark: 48600, unit: "元" },
+      { label: "17:30", value: 62000, benchmark: 70000, unit: "元" },
+      { label: "预计", value: 92000, benchmark: 100000, unit: "元" },
+    ],
+    reasonChain: ["昨天晚市比正常少32位顾客", "今天晚市预约少11桌", "每桌消费没有下降，问题集中在顾客数量"],
+    source: "POS、预约、会员与历史同星期 · 确定性模拟",
+    updatedAt: "08:30",
+    confidence: 92,
+    recheckAt: "12:00",
+    conversionBasis: "按预计人均¥123、每桌2.6位顾客模拟换算",
+    recommendedActionId: "member-recall",
+    recommendedActionTitle: "先召回会员，再跟进未确认预约",
+  },
+  {
+    id: "sevenDay",
+    scope: "store",
+    title: "7日经营复盘",
+    period: "8月5日—8月11日",
+    question: "最近一周，问题重复发生在哪里？",
+    conclusion: "最近7天晚市共少36桌，周一至周三最明显。",
+    hero: { label: "7日晚市缺口", value: "36桌", note: "约94位顾客", tone: "risk" },
+    evidence: [
+      { label: "周一至周三", value: "24桌", note: "占一周缺口67%", tone: "risk" },
+      { label: "周末", value: "5桌", note: "接近正常", tone: "result" },
+      { label: "重复原因", value: "预约不足", note: "客单保持稳定", tone: "ai" },
+    ],
+    series: [
+      { label: "周一", value: 8, benchmark: 4, unit: "桌" },
+      { label: "周二", value: 7, benchmark: 4, unit: "桌" },
+      { label: "周三", value: 9, benchmark: 4, unit: "桌" },
+      { label: "周四", value: 4, benchmark: 4, unit: "桌" },
+      { label: "周五", value: 3, benchmark: 4, unit: "桌" },
+      { label: "周六", value: 2, benchmark: 4, unit: "桌" },
+      { label: "周日", value: 3, benchmark: 4, unit: "桌" },
+    ],
+    reasonChain: ["周一至周三会员触达次数比周末少2次", "晚市预约确认率从78%降至69%", "高峰承接能力正常，不是现场接待限制"],
+    source: "POS、预约与会员触达 · 7日模拟复盘",
+    updatedAt: "8月11日 08:25",
+    confidence: 89,
+    recheckAt: "8月18日 08:30",
+    recommendedActionId: "member-recall",
+    recommendedActionTitle: "把周一至周三会员召回固化为门店动作",
+  },
+  {
+    id: "month",
+    scope: "store",
+    title: "本月目标进度",
+    period: "8月1日—8月31日",
+    question: "本月照现在做，能不能完成目标？",
+    conclusion: "本月预计还差¥160,000，关键不是每天冲刺，而是修复8个弱晚市。",
+    hero: { label: "预计月度完成", value: "¥2,940,000", note: "目标¥3,100,000", tone: "opportunity" },
+    evidence: [
+      { label: "已完成", value: "¥1,046,800", note: "截至8月11日", tone: "neutral" },
+      { label: "预测缺口", value: "¥160,000", note: "约500桌", tone: "risk" },
+      { label: "修复重点", value: "8个晚市", note: "每次补约20桌", tone: "ai" },
+    ],
+    series: [
+      { label: "第1周", value: 712000, benchmark: 700000, unit: "元" },
+      { label: "第2周", value: 654000, benchmark: 700000, unit: "元" },
+      { label: "第3周", value: 688000, benchmark: 700000, unit: "元" },
+      { label: "第4周", value: 726000, benchmark: 700000, unit: "元" },
+    ],
+    reasonChain: ["午市预计达成101%", "晚市预计只达成91%", "8个工作日晚市贡献了主要月度缺口"],
+    source: "月度目标、POS与排期预测 · 演示数据",
+    updatedAt: "8月11日 08:30",
+    confidence: 86,
+    recheckAt: "每周一08:30",
+    recommendedActionId: "member-recall",
+    recommendedActionTitle: "生成8个弱晚市的固定经营剧本",
+  },
+  {
+    id: "traffic",
+    scope: "store",
+    title: "客流与桌数",
+    period: "今日 + 近7日",
+    question: "顾客到底少在哪里？",
+    conclusion: "每100位看过门店的顾客，比平时少成交3桌；晚市预约是最大缺口。",
+    hero: { label: "晚市预约缺口", value: "11桌", note: "约29位顾客", tone: "risk" },
+    evidence: [
+      { label: "美团曝光", value: "正常", note: "不是曝光不足", tone: "neutral" },
+      { label: "到店成交", value: "-3桌/百人", note: "需要召回与跟进", tone: "risk" },
+      { label: "区域平均", value: "74%", note: "达到后可多6桌", tone: "opportunity" },
+    ],
+    series: [
+      { label: "自然到店", value: 52, benchmark: 60, unit: "%" },
+      { label: "会员预约", value: 41, benchmark: 55, unit: "%" },
+      { label: "平台团购", value: 68, benchmark: 70, unit: "%" },
+    ],
+    reasonChain: ["平台曝光与近7日平均基本一致", "预约确认率低9个百分点", "会员近7天触达比优秀门店少2次"],
+    source: "平台流量、预约、桌台与会员数据 · 演示数据",
+    updatedAt: "08:30",
+    confidence: 91,
+    recheckAt: "17:00",
+    conversionBasis: "每桌按2.6位顾客换算；渠道比例为演示口径",
+    recommendedActionId: "member-recall",
+    recommendedActionTitle: "向180位近期会员发送召回内容",
+  },
+  {
+    id: "product",
+    scope: "store",
+    title: "菜品经营",
+    period: "近7日",
+    question: "哪道菜值得多推荐？",
+    conclusion: "爆炒鲜椒鸡口碑稳定，但员工主动推荐比上周少18次。",
+    hero: { label: "少推荐", value: "18次", note: "预计少卖9份", tone: "opportunity" },
+    evidence: [
+      { label: "顾客好评", value: "92%", note: "产品表现稳定", tone: "result" },
+      { label: "主动推荐", value: "-18次", note: "员工动作减少", tone: "risk" },
+      { label: "预计机会", value: "+9份", note: "约¥531营业额", tone: "opportunity" },
+    ],
+    series: [
+      { label: "爆炒鲜椒鸡", value: 76, benchmark: 85, unit: "份" },
+      { label: "麻婆豆腐", value: 91, benchmark: 88, unit: "份" },
+      { label: "回锅肉", value: 68, benchmark: 70, unit: "份" },
+    ],
+    reasonChain: ["菜品好评率没有下降", "推荐次数下降但自然点单保持稳定", "问题在员工动作，不需要更改菜品"],
+    source: "POS菜品销售、员工推荐记录与评价 · 演示数据",
+    updatedAt: "8月11日 08:20",
+    confidence: 84,
+    recheckAt: "20:30",
+    recommendedActionId: "product-recommendation",
+    recommendedActionTitle: "晨会训练一句爆炒鲜椒鸡推荐话术",
+  },
+  {
+    id: "reputation",
+    scope: "store",
+    title: "顾客口碑",
+    period: "近7日",
+    question: "评分下降，顾客真正不满意什么？",
+    conclusion: "3桌顾客提到等菜久，集中在18:30—19:30；不是菜品口味问题。",
+    hero: { label: "同类反馈", value: "3桌", note: "高峰等菜时间", tone: "risk" },
+    evidence: [
+      { label: "等菜时间", value: "3桌", note: "首轮慢6分钟", tone: "risk" },
+      { label: "服务态度", value: "0条", note: "未发现异常", tone: "result" },
+      { label: "菜品口味", value: "1条", note: "低频分散", tone: "neutral" },
+    ],
+    series: [
+      { label: "等菜", value: 3, benchmark: 1, unit: "条" },
+      { label: "服务", value: 0, benchmark: 1, unit: "条" },
+      { label: "口味", value: 1, benchmark: 1, unit: "条" },
+    ],
+    reasonChain: ["反馈集中在高峰时段", "午市巡检发现传菜口等待偏久", "菜品口味评价没有连续异常"],
+    source: "美团评价、现场反馈与午市照片识别 · 演示数据",
+    updatedAt: "14:20",
+    confidence: 88,
+    recheckAt: "20:30",
+    recommendedActionId: "dinner-experience",
+    recommendedActionTitle: "晚市关注10桌顾客体验并复查传菜口",
+  },
+  {
+    id: "member",
+    scope: "store",
+    title: "会员经营",
+    period: "本周",
+    question: "会员有没有真正带顾客回来？",
+    conclusion: "可触达会员1,286人，本周召回到店率12.4%，仍比优秀门店低2.6个百分点。",
+    hero: { label: "本周到店率", value: "12.4%", note: "优秀门店15.0%", tone: "opportunity" },
+    evidence: [
+      { label: "可触达", value: "1,286人", note: "近60天到店", tone: "neutral" },
+      { label: "已触达", value: "420人", note: "仍有空间", tone: "opportunity" },
+      { label: "真实到店", value: "52人", note: "不是只看发送量", tone: "result" },
+    ],
+    series: [
+      { label: "已触达", value: 420, benchmark: 540, unit: "位" },
+      { label: "有回复", value: 86, benchmark: 98, unit: "位" },
+      { label: "已到店", value: 52, benchmark: 63, unit: "位" },
+    ],
+    reasonChain: ["可触达会员池充足", "门店本周只触达会员池的33%", "实际到店复查已纳入总部策略v4.0"],
+    source: "会员、预约与POS回链 · 演示数据",
+    updatedAt: "8月11日 08:15",
+    confidence: 90,
+    recheckAt: "17:30",
+    recommendedActionId: "member-recall",
+    recommendedActionTitle: "筛选180位近期会员并人工确认召回",
+  },
+  {
+    id: "actionEffect",
+    scope: "store",
+    title: "行动效果账本",
+    period: "近7日",
+    question: "做了这么多事，哪一项真的有效？",
+    conclusion: "近7天9项经营行动中，4项已有真实结果，会员召回最值得复用。",
+    hero: { label: "已验证有效", value: "4项", note: "其余仍待实际复查", tone: "result" },
+    evidence: [
+      { label: "执行行动", value: "9项", note: "总部/区域/门店", tone: "neutral" },
+      { label: "证据完整", value: "7项", note: "2项需补充", tone: "opportunity" },
+      { label: "可复用", value: "3项", note: "已沉淀方法", tone: "result" },
+    ],
+    series: [
+      { label: "会员召回", value: 9, benchmark: 6, unit: "桌" },
+      { label: "预约跟进", value: 6, benchmark: 5, unit: "桌" },
+      { label: "菜品训练", value: 4, benchmark: 5, unit: "份" },
+      { label: "现场体验", value: 2, benchmark: 2, unit: "条" },
+    ],
+    reasonChain: ["只有完成证据回传与真实结果复查才算有效", "预测提升不会计入实际收入", "可复用动作需至少两次得到相同方向结果"],
+    source: "行动、证据、审批与POS结果回链 · 演示数据",
+    updatedAt: "8月11日 08:30",
+    confidence: 94,
+    recheckAt: "21:30",
+    recommendedActionTitle: "继续完成今日行动，收官后更新实际效果",
+  },
+];
+
+const initialActionEffects = [
+  {
+    id: "effect-history-recall",
+    actionId: "history-member-recall",
+    title: "8月8日晚市会员召回",
+    problem: "晚市预约少9桌",
+    owner: "王小丽",
+    executedAt: "8月8日 16:20",
+    expected: { guests: 21, tables: 8, forecastLift: 2800 },
+    measured: { guests: 23, tables: 9, actualRevenue: 2980, note: "POS确认9桌实际到店" },
+    evidenceIds: ["history-receipt", "history-pos-link"],
+    status: "verified" as const,
+    verdict: "已验证有效" as const,
+    reusable: true,
+    recheckAt: "已完成",
+    source: "会员触达回执 + 预约 + POS模拟回链",
+  },
+  {
+    id: "effect-member-recall",
+    actionId: "member-recall",
+    title: "今日会员召回",
+    problem: "晚市预计少25桌、65位顾客",
+    owner: "王小丽",
+    executedAt: "待执行 · 16:20",
+    expected: { guests: 31, tables: 12, forecastLift: 3800 },
+    measured: { guests: 0, tables: 0, actualRevenue: 0, note: "等待行动证据与实际到店复查" },
+    evidenceIds: [],
+    status: "forecast" as const,
+    verdict: "待执行" as const,
+    reusable: false,
+    recheckAt: "17:30",
+    source: "总部SOP v4.0 · 当前仅为预计影响",
+  },
+  {
+    id: "effect-lunch-inspection",
+    actionId: "lunch-inspection",
+    title: "午市现场巡检",
+    problem: "传菜口等待偏久",
+    owner: "黄店长",
+    executedAt: "待执行 · 12:00",
+    expected: { guests: 0, tables: 0, forecastLift: 0 },
+    measured: { guests: 0, tables: 0, actualRevenue: 0, note: "目标是避免等菜问题重复，不直接承诺营业提升" },
+    evidenceIds: [],
+    status: "forecast" as const,
+    verdict: "待执行" as const,
+    reusable: false,
+    recheckAt: "20:30",
+    source: "用户旅程责任链 · 演示数据",
   },
 ];
 
@@ -323,7 +600,7 @@ function action(
 
 function createInitialState(): TerminalState {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     role: "storeManager",
     operatingMoment: "preOpen",
     operatingStage: "morningBrief",
@@ -470,6 +747,19 @@ function createInitialState(): TerminalState {
         recheckAt: "17:30",
       }),
       action({
+        id: "product-recommendation",
+        templateId: "template-dinner-experience",
+        title: "训练一句爆炒鲜椒鸡推荐话术",
+        time: "16:50",
+        owner: "李主管",
+        source: "AI建议",
+        method: "语音",
+        dueAt: "17:00",
+        expectedImpact: "预计增加9份主动推荐成交",
+        evidenceRequired: ["员工复述语音", "晚市推荐记录"],
+        recheckAt: "20:30",
+      }),
+      action({
         id: "closing-review",
         templateId: "template-dinner-experience",
         title: "完成今日经营复盘",
@@ -539,6 +829,9 @@ function createInitialState(): TerminalState {
       { id: "repeat-dinner-gap", title: "晚市顾客不足", affectedStores: 6, affectedRegions: 2, translatedImpact: "预计合计少173桌、约450位顾客", templateId: "template-member-recall" },
       { id: "repeat-waiting", title: "首轮出菜偏慢", affectedStores: 4, affectedRegions: 2, translatedImpact: "共17桌顾客反馈等菜久", templateId: "template-dinner-experience" },
     ],
+    reports: storeReports,
+    actionEffects: initialActionEffects,
+    reportExports: [],
     dailyReview,
     meetingStage: 0,
     meetingTranscript: [],
@@ -720,11 +1013,188 @@ class MockKnowledge implements KnowledgeAdapter {
   }
 }
 
+function currentStoreReports(state: TerminalState): OperatingReport[] {
+  const gap = state.gapProgress;
+  const actualKnown = state.operatingStage === "closingReview" || state.operatingStage === "completed";
+  return state.reports.map((report) => {
+    if (report.id === "today") {
+      const conclusion = actualKnown
+        ? `今日实际收官¥${state.dailyReview.actualRevenue.toLocaleString("zh-CN")}，${state.dailyReview.outcome === "improved" ? "目标已完成。" : "仍有经营动作未闭环。"}`
+        : gap.recoveredGuests > 0
+          ? `两项行动已补回${gap.recoveredTables}桌、${gap.recoveredGuests}位顾客，预计还差${gap.remainingTables}桌。`
+          : `按当前经营节奏，预计还差${state.brief.forecastTableGap}桌、${state.brief.forecastGuestGap}位顾客。`;
+      return {
+        ...report,
+        conclusion,
+        hero: actualKnown
+          ? { label: "实际收官", value: `¥${state.dailyReview.actualRevenue.toLocaleString("zh-CN")}`, note: `目标¥${state.dailyReview.targetRevenue.toLocaleString("zh-CN")}`, tone: state.dailyReview.outcome === "improved" ? "result" : "risk" }
+          : { ...report.hero, value: `¥${state.brief.forecastRevenue.toLocaleString("zh-CN")}`, note: `还差${state.brief.forecastTableGap}桌 · ${state.brief.forecastGuestGap}位顾客` },
+        evidence: actualKnown
+          ? [
+              { label: "目标", value: "¥100,000", note: "今日口径", tone: "neutral" },
+              { label: "实际", value: `¥${state.dailyReview.actualRevenue.toLocaleString("zh-CN")}`, note: "POS模拟结果", tone: state.dailyReview.outcome === "improved" ? "result" : "risk" },
+              { label: "已闭环", value: `${state.actions.filter((item) => item.status === "closed").length}项`, note: "含人工验收", tone: "ai" },
+            ]
+          : [
+              { label: "当前收入", value: state.brief.currentRevenue === null ? "未营业" : `¥${state.brief.currentRevenue.toLocaleString("zh-CN")}`, note: "实际口径", tone: "neutral" },
+              { label: "预计收官", value: `¥${state.brief.forecastRevenue.toLocaleString("zh-CN")}`, note: "不等于实际", tone: "opportunity" },
+              { label: "仍需补回", value: `${state.brief.forecastTableGap}桌`, note: `约${state.brief.forecastGuestGap}位顾客`, tone: "risk" },
+            ],
+        updatedAt: state.brief.currentRevenue === null ? "08:30" : state.snapshots.find((item) => item.stage === state.operatingStage)?.time ?? "08:30",
+        recheckAt: state.brief.nextRecheckAt,
+      };
+    }
+    if (report.id === "actionEffect") {
+      const verified = state.actionEffects.filter((item) => item.status === "verified").length;
+      const measuring = state.actionEffects.filter((item) => item.status === "measuring").length;
+      return {
+        ...report,
+        conclusion: `${state.actionEffects.length}项行动有完整效果记录，${verified}项已验证有效${measuring ? `，${measuring}项等待实际到店复查` : ""}。`,
+        hero: { label: "已验证有效", value: `${verified}项`, note: `${measuring}项仍在复查`, tone: "result" },
+      };
+    }
+    return report;
+  });
+}
+
+function scopeReports(scope: ReportScope, state: TerminalState): OperatingReport[] {
+  if (scope === "store") return currentStoreReports(state);
+  if (scope === "region") {
+    const totalTables = state.regionStores.reduce((sum, store) => sum + store.tableGap, 0);
+    const totalGuests = state.regionStores.reduce((sum, store) => sum + store.guestGap, 0);
+    const base = currentStoreReports(state).find((report) => report.id === "sevenDay")!;
+    return [{
+      ...base,
+      scope,
+      title: "区域7日经营复盘",
+      question: "六家店哪里需要区域介入？",
+      conclusion: `6家店预计合计少${totalTables}桌、${totalGuests}位顾客；东二环与三盛广场优先介入。`,
+      hero: { label: "区域桌数缺口", value: `${totalTables}桌`, note: `${state.regionStores.filter((store) => store.unresolvedActions > 2).length}家店行动未闭环`, tone: "risk" },
+      evidence: [
+        { label: "急需介入", value: "2家", note: "缺口+求助排序", tone: "risk" },
+        { label: "待验收", value: `${state.actions.filter((item) => item.status === "pendingHumanReview").length}项`, note: "AI初验后", tone: "opportunity" },
+        { label: "已验证方法", value: `${state.actionEffects.filter((item) => item.status === "verified").length}项`, note: "可跨店复用", tone: "result" },
+      ],
+      series: state.regionStores.map((store) => ({ label: store.name.replace("演示店", ""), value: store.tableGap, benchmark: 8, unit: "桌" as const })),
+      reasonChain: ["东二环预计缺口最大且已有求助", "三盛广场关键行动等待闭环", "仓山、福新和万象城接近正常，不需要统一催办"],
+      source: "6家演示门店经营快照、任务与求助 · 匿名展示",
+      updatedAt: "8月11日 17:10",
+      confidence: 93,
+      recheckAt: "17:30",
+    }];
+  }
+  const base = currentStoreReports(state).find((report) => report.id === "actionEffect")!;
+  return [{
+    ...base,
+    scope,
+    title: "总部行动效果复盘",
+    question: "哪些方法值得沉淀为集团策略？",
+    conclusion: "会员召回已在6家店重复出现，3家店有实际到店证据；等待总部确认沉淀。",
+    hero: { label: "可沉淀方法", value: "3项", note: "2项案例待审核", tone: "ai" },
+    evidence: [
+      { label: "覆盖门店", value: "6家", note: "2个区域", tone: "neutral" },
+      { label: "真实结果", value: "3家", note: "有POS回链", tone: "result" },
+      { label: "待发布", value: "2个案例", note: "需总部人工确认", tone: "opportunity" },
+    ],
+    series: [
+      { label: "会员召回", value: 6, benchmark: 3, unit: "桌" },
+      { label: "等菜责任链", value: 4, benchmark: 3, unit: "桌" },
+      { label: "菜品话术", value: 3, benchmark: 3, unit: "桌" },
+    ],
+    reasonChain: ["会员召回在6家店使用", "3家店已完成触达—预约—实际到店回链", "菜品话术仍缺供应链口径确认，不能正式发布"],
+    source: "区域经营复盘、行动证据与总部审批记录 · 演示数据",
+    updatedAt: "8月11日 17:10",
+    confidence: 94,
+    recheckAt: "8月12日 10:00",
+  }];
+}
+
+const reportAnswers: Record<ReportQuestionId, Omit<ReportAnswer, "questionId">> = {
+  canReachTarget: {
+    question: "今天能不能达标？",
+    answer: "按当前节奏预计¥92,000，还差约25桌、65位顾客；完成召回与预约跟进后预计可升至¥98,000。",
+    evidence: ["今日目标¥100,000", "客单价没有下降", "晚市预约少11桌"],
+    reportId: "today",
+    nextAction: "先执行会员召回，17:00复查预约",
+    recommendedActionId: "member-recall",
+  },
+  whyGuestsLow: {
+    question: "为什么今天顾客少？",
+    answer: "曝光正常，但预约确认和自然到店都偏少；每100位看过门店的顾客，比平时少成交3桌。",
+    evidence: ["美团曝光接近7日平均", "晚市预约少11桌", "预约确认率低9个百分点"],
+    reportId: "traffic",
+    nextAction: "召回近期会员，并跟进10桌未确认预约",
+    recommendedActionId: "member-recall",
+  },
+  whichDish: {
+    question: "今天重点推荐哪道菜？",
+    answer: "爆炒鲜椒鸡顾客好评稳定，但员工主动推荐少18次；先训练一句保守话术，不需要改菜。",
+    evidence: ["菜品好评92%", "主动推荐少18次", "预计有9份销售机会"],
+    reportId: "product",
+    nextAction: "让李主管在晚市前带员工复述一句推荐话术",
+    recommendedActionId: "product-recommendation",
+  },
+  whichActionWorked: {
+    question: "最近哪项行动最有效？",
+    answer: "8月8日会员召回已确认9桌、23位顾客实际到店，新增实际营业¥2,980，是当前证据最完整的方法。",
+    evidence: ["会员触达回执", "预约确认记录", "POS确认9桌到店"],
+    reportId: "actionEffect",
+    nextAction: "今日继续复用，但仍需在21:30核对真实到店",
+    recommendedActionId: "member-recall",
+  },
+};
+
+class MockReporting implements ReportingAdapter {
+  async listReports(scope: ReportScope, state: TerminalState) {
+    await pause(260);
+    return scopeReports(scope, state);
+  }
+
+  async getReport(reportId: ReportId, scope: ReportScope, state: TerminalState) {
+    await pause(320);
+    const reports = scopeReports(scope, state);
+    return reports.find((report) => report.id === reportId) ?? reports[0];
+  }
+
+  async answerQuestion(questionId: ReportQuestionId, state: TerminalState) {
+    await pause(720);
+    const source = reportAnswers[questionId];
+    if (questionId !== "canReachTarget") return { questionId, ...source };
+    return {
+      questionId,
+      ...source,
+      answer: state.gapProgress.recoveredGuests > 0
+        ? `当前收入没有虚增；经营行动已补回${state.gapProgress.recoveredTables}桌预约，预计收官升至¥${state.brief.forecastRevenue.toLocaleString("zh-CN")}。`
+        : source.answer,
+    };
+  }
+
+  async generateExport(reportId: ReportId, kind: ReportExport["kind"], state: TerminalState) {
+    await pause(680);
+    const report = currentStoreReports(state).find((item) => item.id === reportId) ?? currentStoreReports(state)[0];
+    const labels: Record<ReportExport["kind"], string> = {
+      longImage: "经营战报长图",
+      dailyBrief: "店长经营日报",
+      weeklyReview: "7日经营复盘",
+      voiceBrief: "90秒语音简报",
+    };
+    return {
+      reportId,
+      kind,
+      title: `${report.period} · ${labels[kind]}`,
+      summary: `${report.conclusion} 下一步：${report.recommendedActionTitle ?? "收官后复查实际结果"}`,
+      status: "ready" as const,
+      createdAt: "8月11日 08:32",
+    };
+  }
+}
+
 export const demoAdapters: OperatingAdapters = {
   business: new MockBusinessData(),
   workflow: new MockWorkflow(),
   decision: new MockDecisionEngine(),
   knowledge: new MockKnowledge(),
+  reporting: new MockReporting(),
 };
 
 export function freshDemoState() {

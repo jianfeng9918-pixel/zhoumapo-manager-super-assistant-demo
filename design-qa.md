@@ -1,4 +1,20 @@
-# V6 Design QA
+# V6 / V7 Design QA
+
+## V7 经营报告中心
+
+- Visual system source: V6 selected homepage visual and implemented tokens; no new design system introduced.
+- Tested views: store report center, report detail, action-effect ledger, regional report and HQ effect report.
+- Tested viewports: 320×852, 393×852, 412 wide and 427 wide via automated coverage.
+- Store report center keeps one AI conclusion card first, then compact period reports and topic rows. It does not add KPI matrices to the homepage.
+- Report detail uses one conclusion, three evidence facts, native progress trends, one expandable reason chain and one red primary action.
+- Action-effect ledger visually separates verified green, measuring amber and forecast neutral states; expected impact and actual revenue remain distinct.
+- 320px title wrapping was detected during visual inspection and corrected; final 320px viewport has no horizontal overflow or undersized touch targets.
+- In-app browser inspection confirmed 393×852 report detail has exactly one solid red primary button, no horizontal overflow, and 21px maximum report conclusion heading.
+- Status: passed locally; public V4 remains unchanged.
+
+---
+
+## V6 homepage baseline
 
 - Source visual truth: `/Users/huangjianfeng/.codex/generated_images/019fec0e-7b89-7482-862c-43bfb9adc957/exec-fdc9be24-3063-4d05-ba50-2552e2952a34.png`
 - Normalized source: `audit/v6-visual/reference-393x852.jpg`

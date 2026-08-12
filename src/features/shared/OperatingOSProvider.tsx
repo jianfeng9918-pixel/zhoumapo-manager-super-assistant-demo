@@ -19,7 +19,7 @@ import type {
   TerminalState,
 } from "../../domain/types";
 
-const STORAGE_KEY = "zhoumapo-manager-assistant-final-v4";
+const STORAGE_KEY = "zhoumapo-manager-assistant-final-v5";
 
 type OperatingOSContextValue = {
   state: TerminalState;
@@ -53,7 +53,7 @@ function restoreState() {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return freshDemoState();
     const parsed = JSON.parse(raw) as TerminalState;
-    return parsed.schemaVersion === 4 ? parsed : freshDemoState();
+    return parsed.schemaVersion === 5 ? parsed : freshDemoState();
   } catch {
     return freshDemoState();
   }
@@ -102,7 +102,7 @@ export function OperatingOSProvider({ children }: PropsWithChildren) {
     const fresh = freshDemoState();
     window.localStorage.removeItem(STORAGE_KEY);
     dispatch({ type: "reset", state: fresh });
-    showToast("V8演示已恢复到08:30");
+    showToast("V9演示已恢复到08:30");
   }, [showToast]);
 
   const approval = useCallback<OperatingOSContextValue["approval"]>((

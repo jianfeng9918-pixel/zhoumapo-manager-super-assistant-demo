@@ -5,6 +5,7 @@ import type {
   ReportExport,
   ReportId,
   RoleId,
+  StoreOperationFlow,
   TerminalState,
   VoiceSession,
 } from "./types";
@@ -31,6 +32,8 @@ export type TerminalAction =
   | { type: "addReportAction"; reportId: ReportId; actionId: string; approval: ApprovalRecord }
   | { type: "createReportExport"; report: ReportExport; approval: ApprovalRecord }
   | { type: "setVoiceSession"; session: VoiceSession }
+  | { type: "updateLearningProgress"; assetId: string; percent?: number; quizPassed?: boolean; completed?: boolean; bookmarked?: boolean }
+  | { type: "setStoreOperation"; flow: StoreOperationFlow }
   | { type: "completeReview"; approval: ApprovalRecord }
   | { type: "reset"; state: TerminalState };
 
@@ -75,6 +78,41 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
       };
     case "setVoiceSession":
       return { ...state, voiceSession: action.session };
+    case "updateLearningProgress": {
+      const existing = state.learningProgress.find((item) => item.assetId === action.assetId);
+      const next = {
+        assetId: action.assetId,
+        percent: action.percent ?? existing?.percent ?? 0,
+        quizPassed: action.quizPassed ?? existing?.quizPassed ?? false,
+        completed: action.completed ?? existing?.completed ?? false,
+        bookmarked: action.bookmarked ?? existing?.bookmarked ?? false,
+        updatedAt: "8月11日",
+      };
+      return {
+        ...state,
+        learningProgress: existing
+          ? state.learningProgress.map((item) => item.assetId === action.assetId ? next : item)
+          : [...state.learningProgress, next],
+        activity: appendActivity(state, "黄店长", next.completed ? "完成经营大学课程" : "更新课程学习进度", action.assetId),
+      };
+    }
+    case "setStoreOperation":
+      return {
+        ...state,
+        storeOperations: state.storeOperations.map((item) => item.id === action.flow.id ? action.flow : item),
+        notifications: action.flow.status === "closed"
+          ? [{
+              id: `notice-operation-${action.flow.id}`,
+              role: "storeManager",
+              title: `${action.flow.title}已闭环`,
+              body: action.flow.kind === "procurement" ? "到货已拍照验收，库存预警解除。" : "渠道已恢复上架，替代菜推荐已结束。",
+              createdAt: action.flow.updatedAt,
+              read: false,
+              target: "action",
+            }, ...state.notifications]
+          : state.notifications,
+        activity: appendActivity(state, "黄店长", `店务流程更新：${action.flow.status}`, action.flow.id),
+      };
     case "completeLunchInspection":
       return applyStage({
         ...state,

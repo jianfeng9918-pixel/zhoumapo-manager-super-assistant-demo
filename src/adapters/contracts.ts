@@ -4,7 +4,11 @@ import type {
   BusinessSignal,
   DailyReview,
   Evidence,
+  HomeWorkbench,
   KnowledgeCase,
+  LearningAsset,
+  LearningCategory,
+  LearningPath,
   MetricDefinition,
   LiveOperatingFrame,
   OperatingReport,
@@ -19,6 +23,7 @@ import type {
   VisualReport,
   VoiceResolution,
   VoiceSession,
+  StoreOperationFlow,
   WorkRequest,
 } from "../domain/types";
 
@@ -43,6 +48,7 @@ export interface BusinessDataAdapter {
   refreshSignals(): Promise<BusinessSignal[]>;
   getSnapshot(stage: OperatingStageId, state: TerminalState): Promise<OperatingSnapshot>;
   getLiveFrame(stage: OperatingStageId, state: TerminalState): Promise<LiveOperatingFrame>;
+  getHomeWorkbench(state: TerminalState): Promise<HomeWorkbench>;
   subscribeLiveFrames(listener: (frame: LiveOperatingFrame) => void): () => void;
   buildClosingReview(state: TerminalState): Promise<DailyReview>;
 }
@@ -66,6 +72,17 @@ export interface KnowledgeAdapter {
   matchProblem(topic: "traffic" | "rating" | "people"): Promise<KnowledgeMatch>;
   matchCurrentCase(state: TerminalState): Promise<KnowledgeCase>;
   listCases(): Promise<KnowledgeCase[]>;
+  listCategories(): Promise<LearningCategory[]>;
+  listLearningPaths(): Promise<LearningPath[]>;
+  listLearningAssets(categoryId?: LearningCategory["id"]): Promise<LearningAsset[]>;
+  getLearningAsset(assetId: string): Promise<LearningAsset>;
+  searchLearning(query: string): Promise<LearningAsset[]>;
+}
+
+export interface StoreOperationsAdapter {
+  getFlows(state: TerminalState): Promise<StoreOperationFlow[]>;
+  getFlow(flowId: string, state: TerminalState): Promise<StoreOperationFlow>;
+  advance(flowId: string, state: TerminalState): Promise<StoreOperationFlow>;
 }
 
 export interface ReportingAdapter {
@@ -81,7 +98,7 @@ export interface ReportingAdapter {
 }
 
 export interface VoiceInteractionAdapter {
-  resolveIntent(session: VoiceSession, context: "today" | "data" | "tasks" | "academy"): Promise<VoiceResolution>;
+  resolveIntent(session: VoiceSession, context: "today" | "data" | "tasks" | "academy" | "operations" | "mine"): Promise<VoiceResolution>;
 }
 
 export type OperatingAdapters = {
@@ -90,5 +107,6 @@ export type OperatingAdapters = {
   decision: DecisionEngineAdapter;
   knowledge: KnowledgeAdapter;
   reporting: ReportingAdapter;
+  storeOperations: StoreOperationsAdapter;
   voice: VoiceInteractionAdapter;
 };

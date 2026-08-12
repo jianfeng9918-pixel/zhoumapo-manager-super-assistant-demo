@@ -1,60 +1,80 @@
-# V8 Design QA
+# V9 Design QA
 
-## Artifacts
-
-- source visual truth: `/Users/huangjianfeng/.codex/generated_images/019fec0e-7b89-7482-862c-43bfb9adc957/exec-fdc9be24-3063-4d05-ba50-2552e2952a34.png`
-- implementation screenshot: `audit/v8-design-qa/implementation-393x852-pass2.png` (local QA artifact, intentionally excluded from release commit)
-- combined comparison: `audit/v8-design-qa/combined-pass2.png` (local QA artifact, intentionally excluded from release commit)
-- additional rendered states: `audit/v8-design-qa/data-393x852.png`, `audit/v8-design-qa/voice-393x852.png`, `audit/v8-design-qa/meeting-393x852.png`
-- viewport: `393 x 852` CSS px, device scale factor 1
-- source pixels: `853 x 1844`; normalized to `393 x 852`
-- implementation pixels: `393 x 852`
-- state: `08:30 · 黄店长 · 三盛广场演示店 · 全新V8本地存储`
+- source visual truth: `/Users/huangjianfeng/.codex/generated_images/019fec0e-7b89-7482-862c-43bfb9adc957/exec-ac6b02ee-1f5a-4ec4-a4a6-e4481ea0c765.png`
+- secondary visual language: current V8 implementation and the V9 requirement “V2 information completeness + V8 AI judgment/dynamic data”
+- implementation URL: `http://127.0.0.1:5174/?direct=1`
+- final implementation screenshot: `/tmp/v9-home-qa2.png`
+- additional rendered evidence: `/tmp/v9-academy.png`, `/tmp/v9-mine.png`, `/tmp/v9-procurement.png`
+- viewport: 393 × 852 CSS px, deviceScaleFactor 1
+- source pixels: 853 × 1844; source was visually normalized to the same 393px mobile content width
+- implementation pixels: 393 × 852
+- state: V9 fresh 08:30, store manager, no prior local progress
 
 ## Full-view comparison evidence
 
-The normalized source and second implementation capture were placed in one `786 x 852` comparison image. Both show, without scrolling: brand/date, manager greeting, AI judgment, three business facts, one dominant action, compact day route, knowledge context and five bottom tabs. The implementation intentionally removes the source's decorative opportunity score and folds judgment/evidence/action into one tighter card, as required by V8.
+The source establishes a warm-white mobile console, compact brand header, one warm-red primary action, concise business evidence, four clearly recognizable store-work shortcuts, persistent five-tab navigation, and content continuing below the first viewport. The final implementation keeps those source traits while using the V8 AI blue-violet judgment card and semantic red/orange/green status system requested for V9.
 
-## Focused state evidence
+## Focused region evidence
 
-- Data screen: period switch, living conclusion card, voice entry, reports and persistent navigation were inspected at `393 x 852`.
-- Voice fallback: the two contextual phrases appear in a phone-scoped surface and do not hide the current report conclusion.
-- Morning meeting: generated scene image is sharp, correctly cropped, labelled `演示场景 · AI生成`, and the manual-confirmation action remains visually dominant.
-- No separate crop was needed for the home header because the 1:1 combined image keeps all logo, typography, data and button details readable.
+- First screen: AI judgment, three business figures, primary action, WeChat-style hold-to-talk, task summary and all four store-work shortcuts are visible above the fixed navigation.
+- Voice control: idle is a light recessed bar with microphone disc and explicit 350ms/up-swipe instruction; pressed state changes to brand red with waveform.
+- Academy: real course thumbnails, six categories, progress bar, course list and paths use the same card rhythm; no placeholder boxes or custom SVG art.
+- Mine: profile, daily summary, four work entries, evidence-based growth and promotion path are readable without becoming a BI matrix.
+- Procurement: alert, AI draft, six-step state, human confirmation and no-auto-payment note form a complete narrow mobile flow.
 
-## Findings and comparison history
+## Comparison history
 
-### Pass 1
+### Iteration 1 — blocked
 
-- [P2] Header and evidence typography were visibly smaller than the selected source.
-  - Evidence: first implementation capture used a 148px logo, 11px subtitle and 10px evidence values; the source placed more weight on brand and operational numbers.
-  - Fix: increased logo to 158px, subtitle to 12px, judgment to 20px, evidence labels to 10px and evidence values to 12px while preserving the 393x852 first-screen fit.
-- [P3] The V8 card is more compact than the source.
-  - Classification: intentional. V8 requires the same design genes but removes the decorative opportunity score and keeps the main action in the first screen.
+- [P1] Home shortcuts were overlapped by the fixed bottom navigation.
+  - Evidence: `/tmp/v9-home-fresh.png`; shortcut top 678px, bottom 756px, navigation top 742px.
+  - Impact: the user could not fully see the four V9 core store-work entries without scrolling, violating the first-screen requirement.
+  - Fix: reduced AI card padding/avatar/title rhythm, removed duplicate morning confirmation note and kept the red action plus light voice strip.
 
-### Pass 2
+- [P2] The initial V9 home had no red primary action because the voice bar was serving as the only CTA.
+  - Evidence: initial screenshot `/tmp/v9-home.png` and computed red button count 0.
+  - Impact: primary hierarchy drifted from the selected V2 visual and made “hold to talk” look like a generic action.
+  - Fix: restored one warm-red “开始晨会” button and kept hold-to-talk as a separate recessed input surface.
 
-- Fonts and typography: hierarchy now matches the source intent; line wrapping is controlled, app-specific Chinese copy remains readable, and no oversized V4-style title returns.
-- Spacing and layout rhythm: consistent 18px page margins, compact card rhythm, one primary action, and bottom navigation visible without scrolling.
-- Colors and visual tokens: action red, AI blue-purple, opportunity orange and result green are semantic; no health score or decorative multi-color dashboard appears.
-- Image quality and asset fidelity: brand and AI identity use existing assets; meeting/inspection/product imagery uses real raster assets with correct crop, source, alt text and demo labels. No fake SVG/CSS placeholder substitutes visible source imagery.
-- Copy and content: the screen directly answers what happened, what to do now and what requires confirmation; predicted and actual results remain separate.
-- Responsiveness/accessibility: automated checks pass at 320/393/412/427; visible controls remain at least 44px; reduced-motion behavior passes.
+### Iteration 2 — passed
 
-No actionable P0/P1/P2 differences remain. The remaining compactness difference is an intentional V8 product constraint and does not reduce the selected visual language.
+- Post-fix evidence: `/tmp/v9-home-qa2.png`.
+- AI card bottom is 518.95px; shortcut grid spans 635.95–713.95px; fixed navigation begins at 742px. All four shortcuts are fully visible with 28px clearance.
+- Home scroll ratio is 1.407 viewports, within the required 1.35–1.65 range.
+- One visible solid red primary button remains on the home first screen.
+
+## Required fidelity surfaces
+
+- Fonts and typography: Chinese system stack follows the existing app; 19px judgment and 18px action title stay below the requested 22–24px page-title ceiling. Small metadata is visually secondary and not used for the core judgment.
+- Spacing and rhythm: 18px page margins, 14–22px radii, compact 7–9px gaps and light elevation follow V2/V8. No first-screen overlap remains.
+- Colors and tokens: brand red only for the primary action and urgent badges; blue-violet for AI; orange for opportunities; green for verified outcomes. Warm white remains dominant.
+- Image quality: existing source/AI-generated demo photos use `object-fit: cover`, meaningful alt text and demo/source labels. No fake ASCII, emoji, inline SVG or CSS illustration substitutes were introduced.
+- Copy and content: manager language uses guests, tables, inventory days and concrete actions. Store-manager pages contain no health score, six-dimension score or “找林阳帮忙” copy.
+- Icons and states: Radix icons are consistent; task, category, voice, learning, operation and promotion states are visible and interactive.
+- Responsiveness and accessibility: automated 320/393/412/427 checks pass with no horizontal overflow and 44px minimum visible touch targets. Reduced-motion, keyboard voice trigger, up-swipe cancel and alt text checks pass.
+
+## Findings
+
+No remaining actionable P0/P1/P2 findings.
+
+## Follow-up polish
+
+- [P3] A future production build can replace repeated demo course thumbnails with a larger approved brand media library without changing the course model.
 
 ## Primary interactions tested
 
-- hold, release, upward cancel, click fallback and keyboard-compatible voice entry
-- morning meeting preview and manual confirmation boundary
-- today/7-day/month report switch, report drill-down and image evidence
-- lunch inspection image and AI annotation
-- store/region/headquarters shared state, evidence return and manual approval through automated acceptance tests
+- Five bottom tabs and four home shortcuts.
+- Meeting transcription/confirmation, inspection photo, procurement and sold-out flows.
+- Six academy categories, three paths, 18 course records, quiz, bookmark and practice.
+- Voice hold/release/cancel/click fallback and keyboard operation.
+- My tasks/reports/learning/favorites/promotion.
+- Region/HQ shared state, evidence review and template publication.
 
-## Browser and console
+## Console and runtime
 
-- Browser-rendered evidence captured in the Codex in-app browser.
-- Browser console warnings/errors checked on home, data, voice and morning meeting states: none.
-- Protected mobile runtime check: passed.
+- Protected runtime integrity check passed.
+- TypeScript and production build passed.
+- Automated manager workflow suite: 45 passed.
+- No application console errors observed during screenshot and interaction capture.
 
 final result: passed

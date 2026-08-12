@@ -4,7 +4,11 @@ import type {
   BusinessSignal,
   DailyReview,
   Evidence,
+  HomeWorkbench,
   KnowledgeCase,
+  LearningAsset,
+  LearningCategory,
+  LearningPath,
   MetricDefinition,
   LiveOperatingFrame,
   OperatingReport,
@@ -16,8 +20,10 @@ import type {
   ReportQuestionId,
   ReportScope,
   TerminalState,
+  StoreOperationFlow,
   VisualReport,
   VoiceResolution,
+  VoiceActionDraft,
   VoiceSession,
   WorkRequest,
 } from "../domain/types";
@@ -29,12 +35,59 @@ import type {
   MeetingAnalysis,
   OperatingAdapters,
   ReportingAdapter,
+  StoreOperationsAdapter,
   VoiceInteractionAdapter,
   WorkflowAdapter,
 } from "./contracts";
 
 const pause = (milliseconds = 520) =>
   new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds));
+
+const learningMedia = {
+  meeting: { id: "learning-meeting", src: "/assets/morning-briefing-demo.png", alt: "店长晨会操作演示", usage: "knowledge" as const, source: "AI生成演示场景", demo: true },
+  inspection: { id: "learning-inspection", src: "/assets/lunch-inspection-demo.png", alt: "午市现场巡检操作演示", usage: "knowledge" as const, source: "AI生成演示场景", demo: true },
+  product: { id: "learning-product", src: "/assets/explosive-chili-chicken.png", alt: "爆炒鲜椒鸡推荐演示", usage: "product" as const, source: "周麻婆演示菜品素材", demo: true },
+  service: { id: "learning-service", src: "/assets/task-evidence.jpg", alt: "门店服务与带教演示", usage: "knowledge" as const, source: "脱敏演示场景", demo: true },
+};
+
+const learningAssets: LearningAsset[] = [
+  ["growth-gap", "growth", "看懂今日营业缺口", "3分钟看懂今天差多少桌、多少顾客", "图文", learningMedia.meeting, ["先看预计收官", "把金额换成桌数和顾客", "只选一个主行动"], "预计缺口应该先转成什么？", ["顾客和桌数", "健康分"], 0, "历史复盘", "playbook"],
+  ["growth-revenue", "growth", "客单提升3步法", "顾客不少但每桌消费偏低时怎么做", "短视频", learningMedia.product, ["找出主推菜", "练一句15秒话术", "晚市复查推荐结果"], "客单正常时还要强推吗？", ["要", "不要，先解决主因"], 1, "总部SOP", "tasks"],
+  ["growth-review", "growth", "90秒收官复盘", "每天留下真正有效的方法", "操作演示", learningMedia.service, ["对比目标与实际", "核对行动证据", "生成明日第一件事"], "预测提升等于实际收入吗？", ["不等于", "等于"], 0, "系统操作", "playbook"],
+  ["traffic-recall", "traffic", "会员召回实操", "顾客不足时快速补回晚市预约", "操作演示", learningMedia.service, ["筛近60天会员", "店长确认发送", "30分钟追未确认预约"], "召回后先看哪个结果？", ["发送量", "新增预约与到店"], 1, "优秀门店案例", "playbook"],
+  ["traffic-community", "traffic", "社群每周新增40人", "把到店顾客沉淀为可复购会员", "图文", learningMedia.service, ["结账时自然邀请", "按兴趣打标签", "每周复盘新增与复购"], "社群只看人数够吗？", ["够", "还要看复购"], 1, "总部SOP", "tasks"],
+  ["traffic-pitch", "traffic", "高峰15秒表达", "忙时也能清楚推荐活动和招牌菜", "短视频", learningMedia.product, ["一句利益点", "一句适合谁", "一句确认动作"], "高峰话术应该怎样？", ["短、清楚、可执行", "越完整越好"], 0, "总部SOP", "meeting"],
+  ["product-chicken", "product", "鲜椒鸡推荐话术", "让新人敢开口推荐招牌菜", "短视频", learningMedia.product, ["说清口感", "匹配顾客场景", "邀请顾客确认"], "推荐菜品先说什么？", ["顾客能感知的卖点", "内部成本"], 0, "总部SOP", "meeting"],
+  ["product-menu", "product", "菜单结构快速检查", "判断招牌、利润和引流菜是否清楚", "图文", learningMedia.product, ["标出招牌菜", "检查价格梯度", "看顾客下单路径"], "菜单不是越多越好吗？", ["是", "不是，要降低选择成本"], 1, "历史复盘", "inspection"],
+  ["product-movement", "product", "菜品动销日报", "快速找到卖得少和需要训练的菜", "操作演示", learningMedia.product, ["看份数变化", "区分库存与推荐问题", "生成现场行动"], "销量下降一定是菜不好吗？", ["一定", "不一定"], 1, "系统操作", "tasks"],
+  ["inventory-safe", "inventory", "安全库存怎么定", "避免高峰缺货又减少积压", "图文", learningMedia.product, ["看日均用量", "设置1.5天预警", "结合活动调整"], "库存预警要结合什么？", ["日均用量和活动", "店长感觉"], 0, "总部SOP", "procurement"],
+  ["inventory-order", "inventory", "采购申请5步", "从库存预警走到到货验收", "操作演示", learningMedia.inspection, ["核对预警", "确认AI草稿", "到货拍照验收"], "AI能自动付款吗？", ["不能，店长要确认", "可以"], 0, "系统操作", "procurement"],
+  ["inventory-soldout", "inventory", "菜品沽清与恢复", "缺货时减少退单并及时恢复上架", "操作演示", learningMedia.product, ["确认剩余量", "同步渠道并推荐替代菜", "库存恢复后重新上架"], "沽清后要做什么？", ["等顾客发现", "同步渠道和前厅"], 1, "系统操作", "soldOut"],
+  ["experience-wait", "experience", "等菜问题责任链", "把顾客抱怨变成有人负责的动作", "图文", learningMedia.inspection, ["确认问题桌", "指定负责人和时限", "收官复查是否重现"], "等菜问题谁来闭环？", ["明确负责人", "大家一起"], 0, "总部SOP", "inspection"],
+  ["experience-review", "experience", "差评24小时复盘", "看懂差评并安排当天改善", "操作演示", learningMedia.service, ["归类关键词", "找现场证据", "生成改善任务"], "回复差评就是闭环吗？", ["是", "不是，还要改善"], 1, "历史复盘", "tasks"],
+  ["experience-photo", "experience", "一张照片完成巡检", "少填表也能完成现场检查", "短视频", learningMedia.inspection, ["拍清全景", "AI标出问题区域", "异常自动转整改"], "照片模糊怎么办？", ["直接通过", "补拍清楚"], 1, "系统操作", "inspection"],
+  ["team-meeting", "team", "3分钟晨会", "让员工知道目标、动作和负责人", "操作演示", learningMedia.meeting, ["说顾客缺口", "说每个人的动作", "确认回执"], "晨会结束前要确认什么？", ["员工是否接收", "店长讲了多久"], 0, "总部SOP", "meeting"],
+  ["team-new", "team", "新人7天带教", "把不会推荐拆成每天一个动作", "图文", learningMedia.service, ["示范一句", "新人复述", "现场抽查3桌"], "带教只靠看课程够吗？", ["够", "还要现场复述"], 1, "优秀门店案例", "tasks"],
+  ["team-accept", "team", "任务验收不返工", "让照片、语音和结果证据一次完整", "短视频", learningMedia.inspection, ["下发时说清证据", "AI先检查", "人工确认闭环"], "AI初验等于正式验收吗？", ["不是", "是"], 0, "总部SOP", "tasks"],
+].map(([id, categoryId, title, solves, format, media, steps, question, options, correctIndex, source, practiceTarget]) => ({
+  id, categoryId, title, solves, duration: format === "短视频" ? "3分钟" : "5分钟", format, media,
+  steps, quiz: { question, options, correctIndex }, source, version: "v1.0 · 演示内容", scope: "周麻婆门店店长与值班主管", practiceTarget,
+})) as LearningAsset[];
+
+const learningCategories: LearningCategory[] = [
+  { id: "growth", title: "业绩增长", subtitle: "看目标、找缺口、做动作", assetIds: ["growth-gap", "growth-revenue", "growth-review"] },
+  { id: "traffic", title: "流量与会员", subtitle: "获客、召回与复购", assetIds: ["traffic-recall", "traffic-community", "traffic-pitch"] },
+  { id: "product", title: "菜品与菜单", subtitle: "话术、结构与动销", assetIds: ["product-chicken", "product-menu", "product-movement"] },
+  { id: "inventory", title: "采购库存沽清", subtitle: "预警、申请与同步", assetIds: ["inventory-safe", "inventory-order", "inventory-soldout"] },
+  { id: "experience", title: "顾客体验口碑", subtitle: "等菜、差评与巡检", assetIds: ["experience-wait", "experience-review", "experience-photo"] },
+  { id: "team", title: "团队管理带教", subtitle: "晨会、新人与验收", assetIds: ["team-meeting", "team-new", "team-accept"] },
+];
+
+const learningPaths: LearningPath[] = [
+  { id: "path-new-manager", title: "新店长7天入门", subtitle: "每天20分钟，先学会带店", assetIds: ["growth-gap", "team-meeting", "experience-photo", "growth-review"], accent: "red" },
+  { id: "path-traffic", title: "流量增长实战", subtitle: "从会员召回到真实到店", assetIds: ["traffic-recall", "traffic-community", "traffic-pitch"], accent: "ai" },
+  { id: "path-inventory", title: "菜品进销存操作", subtitle: "预警、采购、沽清一次走通", assetIds: ["inventory-safe", "inventory-order", "inventory-soldout"], accent: "amber" },
+];
 
 const metricDictionary: MetricDefinition[] = [
   {
@@ -298,6 +351,57 @@ const storeReports: OperatingReport[] = [
     recheckAt: "17:30",
     recommendedActionId: "member-recall",
     recommendedActionTitle: "筛选180位近期会员并人工确认召回",
+  },
+  {
+    id: "inventory",
+    scope: "store",
+    title: "库存与损耗",
+    period: "今日",
+    question: "今天哪些食材需要处理？",
+    conclusion: "鸡肉库存只够1.5天；鲜椒鸡晚市有沽清风险，先确认采购草稿。",
+    hero: { label: "库存预警", value: "2项", note: "鸡肉、鲜椒", tone: "opportunity" },
+    evidence: [
+      { label: "鸡肉可用", value: "1.5天", note: "低于2天预警", tone: "risk" },
+      { label: "今日损耗", value: "¥320", note: "比正常多¥80", tone: "opportunity" },
+      { label: "待确认申请", value: "1单", note: "尚未付款", tone: "neutral" },
+    ],
+    series: [
+      { label: "鸡肉", value: 1.5, benchmark: 2, unit: "份" },
+      { label: "鲜椒", value: 2.2, benchmark: 2, unit: "份" },
+      { label: "食用油", value: 4.5, benchmark: 2, unit: "份" },
+    ],
+    reasonChain: ["昨晚鲜椒鸡多售24份", "今天晚市预计仍是主推菜", "按1.5天预警需今天提交采购申请"],
+    source: "库存与POS模拟回传 · 演示数据",
+    updatedAt: "8月11日 08:28",
+    confidence: 89,
+    recheckAt: "15:00",
+    recommendedActionTitle: "确认AI采购草稿",
+  },
+  {
+    id: "people",
+    scope: "store",
+    title: "人员执行",
+    period: "今日",
+    question: "今天谁的动作还没闭环？",
+    conclusion: "3位负责人已排好；王小丽的会员召回还需16:20执行。",
+    hero: { label: "待回传", value: "3项", note: "晨会后正式下发", tone: "ai" },
+    evidence: [
+      { label: "当班", value: "12人", note: "全部到岗", tone: "result" },
+      { label: "已接收", value: "3人", note: "晨会行动", tone: "neutral" },
+      { label: "新人带教", value: "1项", note: "17:00复查", tone: "opportunity" },
+    ],
+    series: [
+      { label: "已接收", value: 3, benchmark: 3, unit: "条" },
+      { label: "执行中", value: 1, benchmark: 3, unit: "条" },
+      { label: "已闭环", value: 0, benchmark: 3, unit: "条" },
+    ],
+    reasonChain: ["晨会先明确每个人的一项动作", "系统跟踪回执和证据", "未按时回传才触发提醒"],
+    source: "行动与回执模拟数据",
+    updatedAt: "8月11日 08:49",
+    confidence: 96,
+    recheckAt: "17:00",
+    recommendedActionId: "morning-meeting",
+    recommendedActionTitle: "查看晨会行动回执",
   },
   {
     id: "actionEffect",
@@ -602,7 +706,7 @@ const knowledgeCases: KnowledgeCase[] = [
   {
     id: "case-regional-support",
     topic: "support",
-    title: "门店资源不够时，带着完整经营上下文求助",
+    title: "需要上级资源时，带着完整经营上下文申请支持",
     judgment: "先做门店能做的，再申请商场会员群或区域市场资源。",
     result: "求助必须带缺口、已执行动作、需要资源和复查时间。",
     sourceType: "优秀门店案例",
@@ -634,7 +738,7 @@ function action(
 
 function createInitialState(): TerminalState {
   const baseState = {
-    schemaVersion: 4 as const,
+    schemaVersion: 5 as const,
     role: "storeManager",
     operatingMoment: "preOpen",
     operatingStage: "morningBrief",
@@ -875,6 +979,34 @@ function createInitialState(): TerminalState {
       { id: "media-service", src: "/assets/task-evidence.jpg", alt: "店员服务顾客的演示场景", usage: "knowledge" as const, source: "演示场景素材", demo: true },
     ],
     voiceSession: { id: "voice-idle", status: "idle" as const, startedAt: null, durationMs: 0, transcript: "", intent: null, confidence: 0, cancelled: false },
+    learningProgress: [
+      { assetId: "team-meeting", percent: 60, quizPassed: false, completed: false, bookmarked: true, updatedAt: "8月10日" },
+      { assetId: "growth-gap", percent: 100, quizPassed: true, completed: true, bookmarked: false, updatedAt: "8月10日" },
+    ],
+    storeOperations: [
+      {
+        id: "operation-procurement", kind: "procurement", title: "鸡肉采购申请", alert: "鸡肉库存只够1.5天，低于2天预警线。", step: 0, status: "alert", item: "鲜鸡腿肉", quantity: "建议80kg · 约2.2天", costImpact: "预算¥2,960 · 比手工估算少采购10kg", channelReceipts: [], updatedAt: "08:28",
+      },
+      {
+        id: "operation-soldout", kind: "soldOut", title: "爆炒鲜椒鸡库存与沽清", alert: "现有库存预计只够12份，晚市可能提前售罄。", step: 0, status: "alert", item: "爆炒鲜椒鸡", quantity: "可售12份 · 预计缺8份", costImpact: "及时沽清预计避免2单退款", channelReceipts: [
+          { name: "收银", status: "pending" }, { name: "美团", status: "pending" }, { name: "抖音", status: "pending" },
+        ], updatedAt: "08:29",
+      },
+    ],
+    managerWorkspace: {
+      managerName: "黄店长",
+      storeName: "三盛广场演示店",
+      starLevel: 2,
+      nextStarLevel: 3,
+      todayTarget: 100000,
+      monthlyMethods: ["会员召回已验证1次", "晨会任务拆解连续2天完整", "午市拍照巡检证据完整"],
+      promotionConditions: [
+        { label: "在职年限", current: "1年8个月", target: "满2年", met: false },
+        { label: "连续盈利", current: "2个月", target: "连续3个月", met: false },
+        { label: "年度评比", current: "区域第6名", target: "区域前5名", met: false },
+        { label: "任务闭环", current: "92%", target: "≥90%", met: true },
+      ],
+    },
     dailyReview,
     meetingStage: 0,
     meetingTranscript: [],
@@ -912,6 +1044,29 @@ class MockBusinessData implements BusinessDataAdapter {
   async getLiveFrame(stage: OperatingStageId, state: TerminalState) {
     await pause(240);
     return buildLiveFrame(stage, state);
+  }
+
+  async getHomeWorkbench(state: TerminalState): Promise<HomeWorkbench> {
+    await pause(140);
+    const completed = state.actions.filter((item) => item.released && item.status === "closed").length;
+    const released = state.actions.filter((item) => item.released).length;
+    const procurement = state.storeOperations.find((item) => item.kind === "procurement")!;
+    return {
+      updatedAt: state.liveFrame.freshnessLabel,
+      judgment: state.liveFrame.judgment,
+      taskSummary: { completed, total: Math.max(released, 6), pendingEvidence: state.actions.filter((item) => ["pendingEvidence", "aiReview", "pendingHumanReview"].includes(item.status)).length },
+      shortcuts: [
+        { id: "meeting", title: "开晨会", note: state.meetingStage === 4 ? "3人已接收" : "08:45开始", status: state.meetingStage === 4 ? "done" : "ready" },
+        { id: "inspection", title: "拍照巡检", note: state.evidence.some((item) => item.actionId === "lunch-inspection") ? "午市已完成" : "12:00复查", status: state.evidence.some((item) => item.actionId === "lunch-inspection") ? "done" : "ready" },
+        { id: "procurement", title: "采购申请", note: procurement.status === "closed" ? "已验收" : "1项预警", status: procurement.status === "closed" ? "done" : "attention", badge: procurement.status === "closed" ? undefined : "1" },
+        { id: "soldOut", title: "库存与沽清", note: "鲜椒鸡12份", status: "attention", badge: "2" },
+      ],
+      dynamics: [
+        { id: "dynamic-rating", type: "reputation", title: "昨日3桌提到等菜久", note: "已带入午市巡检与晚市现场动作", time: "08:26", tone: "risk" },
+        { id: "dynamic-inventory", type: "inventory", title: procurement.status === "closed" ? "鸡肉到货验收完成" : "鸡肉只够1.5天", note: procurement.status === "closed" ? "库存预警已解除" : "AI已生成80kg采购草稿", time: procurement.updatedAt, tone: procurement.status === "closed" ? "result" : "opportunity" },
+      ],
+      recommendedLearningId: state.operatingStage === "lunchReview" ? "experience-wait" : "traffic-recall",
+    };
   }
 
   subscribeLiveFrames(_listener: (frame: LiveOperatingFrame) => void) {
@@ -1066,6 +1221,62 @@ class MockKnowledge implements KnowledgeAdapter {
   async listCases() {
     await pause(180);
     return knowledgeCases;
+  }
+
+  async listCategories() {
+    await pause(120);
+    return learningCategories;
+  }
+
+  async listLearningPaths() {
+    await pause(120);
+    return learningPaths;
+  }
+
+  async listLearningAssets(categoryId?: LearningCategory["id"]) {
+    await pause(140);
+    return categoryId ? learningAssets.filter((item) => item.categoryId === categoryId) : learningAssets;
+  }
+
+  async getLearningAsset(assetId: string) {
+    await pause(120);
+    return learningAssets.find((item) => item.id === assetId) ?? learningAssets[0];
+  }
+
+  async searchLearning(query: string) {
+    await pause(180);
+    const normalized = query.trim();
+    if (!normalized) return learningAssets;
+    return learningAssets.filter((item) => `${item.title}${item.solves}${item.source}`.includes(normalized));
+  }
+}
+
+class MockStoreOperations implements StoreOperationsAdapter {
+  async getFlows(state: TerminalState) {
+    await pause(140);
+    return state.storeOperations;
+  }
+
+  async getFlow(flowId: string, state: TerminalState) {
+    await pause(120);
+    return state.storeOperations.find((item) => item.id === flowId) ?? state.storeOperations[0];
+  }
+
+  async advance(flowId: string, state: TerminalState) {
+    await pause(520);
+    const current = state.storeOperations.find((item) => item.id === flowId) ?? state.storeOperations[0];
+    const step = Math.min(5, current.step + 1) as StoreOperationFlow["step"];
+    const statuses: StoreOperationFlow["status"][] = ["alert", "draft", "confirmed", "submitted", "received", "closed"];
+    return {
+      ...current,
+      step,
+      status: statuses[step],
+      evidenceUrl: step === 5 ? "/assets/lunch-inspection-demo.png" : current.evidenceUrl,
+      channelReceipts: current.kind === "soldOut"
+        ? current.channelReceipts.map((item) => ({ ...item, status: step >= 5 ? "restored" as const : step >= 3 ? "synced" as const : "pending" as const }))
+        : current.channelReceipts,
+      updatedAt: current.kind === "procurement" ? ["08:28", "08:29", "08:31", "08:32", "14:40", "14:46"][step] : ["08:29", "08:30", "08:31", "08:33", "17:00", "17:20"][step],
+    };
   }
 }
 
@@ -1269,15 +1480,21 @@ class MockReporting implements ReportingAdapter {
   }
 }
 
-const voiceByContext: Record<"today" | "data" | "tasks" | "academy", VoiceResolution> = {
-  today: { transcript: "帮我开晨会", intent: "startMeeting", confidence: 97, summary: "准备开始08:45晨会，AI将实时转写并预生成行动。", confirmationLabel: "确认进入晨会", targetId: "morning-meeting" },
-  data: { transcript: "今天为什么少顾客", intent: "askBusiness", confidence: 95, summary: "晚市预约少11桌是当前最大原因，不是客单价下降。", confirmationLabel: "查看经营答案", targetId: "traffic" },
-  tasks: { transcript: "把会员召回交给王小丽", intent: "createAction", confidence: 94, summary: "已预填16:20会员召回，负责人王小丽；确认后才进入执行。", confirmationLabel: "确认查看行动", targetId: "member-recall" },
-  academy: { transcript: "最近评分下降怎么办", intent: "askBusiness", confidence: 93, summary: "当前评分风险来自高峰等菜，已匹配周麻婆责任链案例。", confirmationLabel: "查看匹配方法", targetId: "rating" },
+const voiceResolution = (
+  context: VoiceActionDraft["context"], transcript: string, intent: VoiceResolution["intent"], confidence: number, summary: string, confirmationLabel: string, targetId: string,
+): VoiceResolution => ({ transcript, intent, confidence, summary, confirmationLabel, targetId, requiresConfirmation: true, draft: { id: `voice-draft-${context}`, title: summary, context, targetId, prefilledFields: [{ label: "AI理解", value: summary }, { label: "确认边界", value: "人工确认后才执行" }], confirmed: false } });
+
+const voiceByContext: Record<VoiceActionDraft["context"], VoiceResolution> = {
+  today: voiceResolution("today", "帮我开晨会", "startMeeting", 97, "准备开始08:45晨会，AI将实时转写并预生成行动。", "确认进入晨会", "morning-meeting"),
+  data: voiceResolution("data", "今天为什么少顾客", "askBusiness", 95, "晚市预约少11桌是当前最大原因，不是客单价下降。", "查看经营答案", "traffic"),
+  tasks: voiceResolution("tasks", "把会员召回交给王小丽", "createAction", 94, "已预填16:20会员召回，负责人王小丽；确认后才进入执行。", "确认查看行动", "member-recall"),
+  academy: voiceResolution("academy", "最近评分下降怎么办", "askBusiness", 93, "当前评分风险来自高峰等菜，已匹配周麻婆责任链课程。", "查看匹配方法", "experience-wait"),
+  operations: voiceResolution("operations", "帮我生成采购申请", "createAction", 96, "已按1.5天库存生成80kg采购草稿，确认后提交申请。", "查看采购草稿", "operation-procurement"),
+  mine: voiceResolution("mine", "生成今日战报", "generateReport", 95, "已预填店长日报草稿，确认后才生成。", "查看日报草稿", "today"),
 };
 
 class MockVoiceInteraction implements VoiceInteractionAdapter {
-  async resolveIntent(session: VoiceSession, context: "today" | "data" | "tasks" | "academy") {
+  async resolveIntent(session: VoiceSession, context: VoiceActionDraft["context"]) {
     await pause(620);
     return { ...voiceByContext[context], transcript: session.transcript || voiceByContext[context].transcript };
   }
@@ -1289,6 +1506,7 @@ export const demoAdapters: OperatingAdapters = {
   decision: new MockDecisionEngine(),
   knowledge: new MockKnowledge(),
   reporting: new MockReporting(),
+  storeOperations: new MockStoreOperations(),
   voice: new MockVoiceInteraction(),
 };
 

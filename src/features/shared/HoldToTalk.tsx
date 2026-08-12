@@ -3,13 +3,15 @@ import { CheckCircledIcon, Cross2Icon, SpeakerLoudIcon } from "@radix-ui/react-i
 import type { VoiceResolution, VoiceSession } from "../../domain/types";
 import { useOperatingOS } from "./OperatingOSProvider";
 
-type VoiceContext = "today" | "data" | "tasks" | "academy";
+type VoiceContext = "today" | "data" | "tasks" | "academy" | "operations" | "mine";
 
 const fallbackPhrases: Record<VoiceContext, string[]> = {
-  today: ["帮我开晨会", "我做不了，找林阳帮忙"],
+  today: ["帮我开晨会", "今天最重要做什么"],
   data: ["今天为什么少顾客", "生成今日战报"],
-  tasks: ["把会员召回交给王小丽", "我做不了，请求帮助"],
+  tasks: ["把会员召回交给王小丽", "查看待回传任务"],
   academy: ["最近评分下降怎么办", "新人不会推荐怎么办"],
+  operations: ["帮我生成采购申请", "鲜椒鸡库存还够几份"],
+  mine: ["生成今日战报", "查看我的晋升条件"],
 };
 
 export function HoldToTalk({
@@ -116,8 +118,8 @@ export function HoldToTalk({
         onKeyDown={(event) => { if ((event.key === " " || event.key === "Enter") && !event.repeat) begin(0); }}
         onKeyUp={(event) => { if (event.key === " " || event.key === "Enter") finish(); }}
       >
-        <SpeakerLoudIcon />
-        <span>{holding ? (cancelArmed ? "松开取消" : "松开完成") : "按住说话"}<small>{holding ? `${(elapsed / 1000).toFixed(1)}秒 · 正在转写` : "点击可选常用话术"}</small></span>
+        <span className="voice-mic-disc"><SpeakerLoudIcon /></span>
+        <span>{holding ? (cancelArmed ? "松开取消" : "松开发送") : "按住说话"}<small>{holding ? `${(elapsed / 1000).toFixed(1)}秒 · 正在转写` : "按住350毫秒 · 上滑取消"}</small></span>
         {holding ? <i className="voice-wave" aria-hidden="true">{Array.from({ length: 7 }, (_, index) => <b key={index} />)}</i> : null}
       </button>
       {suggestions ? <div className="voice-suggestions">{fallbackPhrases[context].map((phrase) => <button type="button" key={phrase} onClick={() => choose(phrase)}><CheckCircledIcon />{phrase}</button>)}</div> : null}

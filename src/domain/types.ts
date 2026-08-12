@@ -77,6 +77,17 @@ export type VoiceResolution = {
   summary: string;
   confirmationLabel: string;
   targetId: string;
+  requiresConfirmation: true;
+  draft: VoiceActionDraft;
+};
+
+export type VoiceActionDraft = {
+  id: string;
+  title: string;
+  context: "today" | "data" | "tasks" | "academy" | "operations" | "mine";
+  targetId: string;
+  prefilledFields: Array<{ label: string; value: string }>;
+  confirmed: boolean;
 };
 
 export type StoryMedia = {
@@ -136,6 +147,111 @@ export type GrowthEvidence = {
   actionId: string;
   evidenceId?: string;
   earned: boolean;
+};
+
+export type WorkbenchShortcutId = "meeting" | "inspection" | "procurement" | "soldOut";
+
+export type WorkbenchShortcut = {
+  id: WorkbenchShortcutId;
+  title: string;
+  note: string;
+  status: "ready" | "attention" | "done";
+  badge?: string;
+};
+
+export type HomeWorkbench = {
+  updatedAt: string;
+  judgment: string;
+  taskSummary: { completed: number; total: number; pendingEvidence: number };
+  shortcuts: WorkbenchShortcut[];
+  dynamics: Array<{
+    id: string;
+    type: "reputation" | "inventory" | "receipt";
+    title: string;
+    note: string;
+    time: string;
+    tone: "risk" | "opportunity" | "result";
+  }>;
+  recommendedLearningId: string;
+};
+
+export type LearningCategoryId =
+  | "growth"
+  | "traffic"
+  | "product"
+  | "inventory"
+  | "experience"
+  | "team";
+
+export type LearningCategory = {
+  id: LearningCategoryId;
+  title: string;
+  subtitle: string;
+  assetIds: string[];
+};
+
+export type LearningPath = {
+  id: string;
+  title: string;
+  subtitle: string;
+  assetIds: string[];
+  accent: "red" | "ai" | "amber";
+};
+
+export type LearningAsset = {
+  id: string;
+  categoryId: LearningCategoryId;
+  title: string;
+  solves: string;
+  duration: string;
+  format: "图文" | "短视频" | "操作演示";
+  media: StoryMedia;
+  steps: [string, string, string];
+  quiz: {
+    question: string;
+    options: [string, string];
+    correctIndex: 0 | 1;
+  };
+  source: "总部SOP" | "优秀门店案例" | "历史复盘" | "系统操作";
+  version: string;
+  scope: string;
+  practiceTarget: "meeting" | "inspection" | "procurement" | "soldOut" | "playbook" | "tasks";
+};
+
+export type LearningProgress = {
+  assetId: string;
+  percent: number;
+  quizPassed: boolean;
+  completed: boolean;
+  bookmarked: boolean;
+  updatedAt: string;
+};
+
+export type StoreOperationKind = "procurement" | "soldOut";
+
+export type StoreOperationFlow = {
+  id: string;
+  kind: StoreOperationKind;
+  title: string;
+  alert: string;
+  step: 0 | 1 | 2 | 3 | 4 | 5;
+  status: "alert" | "draft" | "confirmed" | "submitted" | "received" | "closed";
+  item: string;
+  quantity: string;
+  costImpact: string;
+  channelReceipts: Array<{ name: string; status: "pending" | "synced" | "restored" }>;
+  evidenceUrl?: string;
+  updatedAt: string;
+};
+
+export type ManagerWorkspace = {
+  managerName: string;
+  storeName: string;
+  starLevel: 2;
+  nextStarLevel: 3;
+  todayTarget: number;
+  monthlyMethods: string[];
+  promotionConditions: Array<{ label: string; current: string; target: string; met: boolean }>;
 };
 
 export type MetricDefinition = {
@@ -355,6 +471,8 @@ export type ReportId =
   | "product"
   | "reputation"
   | "member"
+  | "inventory"
+  | "people"
   | "actionEffect";
 
 export type ReportScope = "store" | "region" | "headquarters";
@@ -463,7 +581,7 @@ export type AuditEvent = {
 };
 
 export type TerminalState = {
-  schemaVersion: 4;
+  schemaVersion: 5;
   role: RoleId;
   operatingMoment: OperatingMomentId;
   operatingStage: OperatingStageId;
@@ -491,6 +609,9 @@ export type TerminalState = {
   metricTransitions: MetricTransition[];
   storyMedia: StoryMedia[];
   voiceSession: VoiceSession;
+  learningProgress: LearningProgress[];
+  storeOperations: StoreOperationFlow[];
+  managerWorkspace: ManagerWorkspace;
   dailyReview: DailyReview;
   meetingStage: 0 | 1 | 2 | 3 | 4;
   meetingTranscript: string[];

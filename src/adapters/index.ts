@@ -5,6 +5,7 @@ export type {
   KnowledgeAdapter,
   OperatingAdapters,
   ReportingAdapter,
+  StoreOperationsAdapter,
   VoiceInteractionAdapter,
   WorkflowAdapter,
 } from "./contracts";

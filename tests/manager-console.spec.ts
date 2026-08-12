@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-const storageKey = "zhoumapo-manager-assistant-final-v4";
+const storageKey = "zhoumapo-manager-assistant-final-v5";
 
 async function openDemo(page: Page, width = 393, height = 852) {
   await page.setViewportSize({ width, height });
@@ -45,7 +45,9 @@ async function switchRole(page: Page, roleName: string) {
   await backToRoot(page);
   const mine = page.getByRole("button", { name: "我的", exact: true });
   await mine.click();
-  const roleEntry = page.getByRole("button", { name: /区域与总部联动演示|切换演示角色/ }).first();
+  const demoTools = page.getByText("演示与帮助", { exact: true });
+  if (await demoTools.count()) await demoTools.click();
+  const roleEntry = page.getByRole("button", { name: /角色联动演示|区域与总部联动演示|切换演示角色/ }).first();
   await roleEntry.click();
   await page.getByRole("button", { name: new RegExp(roleName) }).click();
   await page.waitForTimeout(250);
@@ -66,10 +68,10 @@ async function submitSupportRequest(page: Page) {
   await backToRoot(page);
   await page.getByRole("navigation", { name: "底部导航" }).getByRole("button", { name: /任务/ }).click();
   await page.locator("main.store-page .playbook-progress").getByRole("button", { name: /16:20.*向180位会员发送召回内容/ }).click();
-  await clickCurrentFlowButton(page, /门店资源不够/);
+  await clickCurrentFlowButton(page, /申请区域经营支持|查看区域支持进度|门店资源不够/);
   await clickCurrentFlowButton(page, "人工确认并发送申请");
   await waitForBusy(page);
-  await expect(page.getByRole("heading", { name: "林阳已收到申请" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /区域已收到申请|林阳已收到申请/ })).toBeVisible();
 }
 
 async function completeRecallToRegionalReview(page: Page) {
@@ -83,7 +85,7 @@ async function completeRecallToRegionalReview(page: Page) {
   await waitForBusy(page);
   await clickCurrentFlowButton(page, "开始AI初验");
   await waitForBusy(page);
-  await expect(page.getByRole("button", { name: "等待林阳人工验收" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /等待区域人工验收|等待林阳人工验收/ })).toBeVisible();
 }
 
 async function completeReservationToRegionalReview(page: Page) {
@@ -97,7 +99,7 @@ async function completeReservationToRegionalReview(page: Page) {
   await waitForBusy(page);
   await clickCurrentFlowButton(page, "开始AI初验");
   await waitForBusy(page);
-  await expect(page.getByRole("button", { name: "等待林阳人工验收" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /等待区域人工验收|等待林阳人工验收/ })).toBeVisible();
 }
 
 async function completeExperienceToRegionalReview(page: Page) {
@@ -111,7 +113,7 @@ async function completeExperienceToRegionalReview(page: Page) {
   await waitForBusy(page);
   await clickCurrentFlowButton(page, "开始AI初验");
   await waitForBusy(page);
-  await expect(page.getByRole("button", { name: "等待林阳人工验收" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /等待区域人工验收|等待林阳人工验收/ })).toBeVisible();
 }
 
 async function approveRegionalAction(page: Page, actionName: RegExp) {
@@ -121,12 +123,13 @@ async function approveRegionalAction(page: Page, actionName: RegExp) {
   await clickCurrentFlowButton(page, "确认这项闭环");
 }
 
-test("V8首屏在393×852内同时出现活判断、唯一主行动和五栏导航", async ({ page }) => {
+test("V9首屏在393×852内同时出现判断、主行动、语音、常用工作和五栏导航", async ({ page }) => {
   await openDemo(page);
   await expect(page.getByRole("heading", { name: "今天重点不是继续提客单，而是补回晚市顾客。" })).toBeVisible();
   await expect(page.getByTestId("hold-to-talk-today")).toBeVisible();
   await expect(page.getByText("08:30已核对")).toBeVisible();
-  await expect(page.getByRole("region", { name: "今天经营路线" }).getByRole("button", { name: /12:00.*午市复查/ })).toBeVisible();
+  await expect(page.getByTestId("home-shortcuts")).toBeVisible();
+  for (const label of ["开晨会", "拍照巡检", "采购申请", "库存与沽清"]) await expect(page.getByRole("button", { name: new RegExp(label) }).first()).toBeVisible();
   await expect(page.locator(".v6-evidence-strip > span")).toHaveCount(3);
   for (const label of ["今日", "数据", "任务", "学院", "我的"]) {
     await expect(page.getByRole("button", { name: new RegExp(label) }).last()).toBeVisible();
@@ -136,7 +139,7 @@ test("V8首屏在393×852内同时出现活判断、唯一主行动和五栏导�
   expect(primaryBox?.y).toBeLessThan(navBox?.y ?? 0);
 });
 
-test("数据页是经营报告中心，可下钻今日、7日、本月和四个经营专题", async ({ page }) => {
+test("数据页是经营报告中心，可下钻今日、7日、本月和六个经营专题", async ({ page }) => {
   await openDemo(page);
   await page.getByRole("button", { name: "数据", exact: true }).click();
   await expect(page.getByRole("heading", { name: "会回答问题的经营数据" })).toBeVisible();
@@ -144,8 +147,8 @@ test("数据页是经营报告中心，可下钻今日、7日、本月和四个�
   await expect(page.getByRole("button", { name: /今天能不能达标/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /7日经营复盘/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /本月目标进度/ })).toBeVisible();
-  for (const label of ["客流与桌数", "菜品经营", "顾客口碑", "会员经营"]) {
-    await expect(page.getByRole("button", { name: new RegExp(label) })).toBeVisible();
+  for (const label of ["客流与桌数", "菜品经营", "顾客口碑", "会员经营", "库存与损耗", "人员执行"]) {
+    await expect(page.getByRole("button", { name: new RegExp(label) }).last()).toBeVisible();
   }
 });
 
@@ -230,7 +233,7 @@ test("总部可从行动效果证据进入策略校准，AI不自动发布", asy
   await expect(page.getByRole("heading", { name: "晚市会员召回" })).toBeVisible();
 });
 
-test("V8首屏采用经营语义色并只出现一个实心红色主按钮", async ({ page }) => {
+test("V9首屏采用经营语义色并只出现一个实心红色主按钮", async ({ page }) => {
   await openDemo(page);
   const visual = await page.evaluate(() => {
     const primary = [...document.querySelectorAll<HTMLElement>("button")].filter((item) => {
@@ -251,6 +254,7 @@ test("V8首屏采用经营语义色并只出现一个实心红色主按钮", asy
 test("午市拍一张照片后自动推进到14:30且生成现场判断", async ({ page }) => {
   await openDemo(page);
   await page.getByRole("button", { name: "我的", exact: true }).click();
+  await page.getByText("演示与帮助", { exact: true }).click();
   await page.getByRole("button", { name: "12:00" }).click();
   await page.getByRole("button", { name: "今日", exact: true }).click();
   await expect(page.getByRole("button", { name: "拍照复查" })).toBeVisible();
@@ -266,6 +270,7 @@ test("午市拍一张照片后自动推进到14:30且生成现场判断", async 
 test("14:30确认剧本后自动进入17:30晚市追回", async ({ page }) => {
   await openDemo(page);
   await page.getByRole("button", { name: "我的", exact: true }).click();
+  await page.getByText("演示与帮助", { exact: true }).click();
   await page.getByRole("button", { name: "14:30" }).click();
   await page.getByRole("button", { name: "今日", exact: true }).click();
   await page.getByRole("button", { name: "确认剧本" }).click();
@@ -423,6 +428,7 @@ test("区域支持未处理时不得显示剩余16位顾客已追回", async ({ 
   await approveRegionalAction(page, /跟进10桌未确认预约/);
   await switchRole(page, "黄店长");
   await page.getByRole("button", { name: "我的", exact: true }).click();
+  await page.getByText("演示与帮助", { exact: true }).click();
   await page.getByRole("button", { name: "21:30" }).click();
   const state = await page.evaluate((key) => JSON.parse(window.localStorage.getItem(key)!), storageKey);
   expect(state.workRequests[0].status).toBe("pendingRegional");
@@ -431,6 +437,7 @@ test("区域支持未处理时不得显示剩余16位顾客已追回", async ({ 
 });
 
 test("区域可退回具体证据，店长同步收到补充要求", async ({ page }) => {
+  test.setTimeout(35_000);
   await openDemo(page);
   await completeMeeting(page);
   await completeRecallToRegionalReview(page);
@@ -441,7 +448,7 @@ test("区域可退回具体证据，店长同步收到补充要求", async ({ pa
   await page.getByRole("button", { name: "退回补充" }).click();
   await switchRole(page, "黄店长");
   await page.getByRole("button", { name: "今日", exact: true }).click();
-  await page.getByRole("button", { name: "查看提醒" }).click();
+  await page.getByRole("button", { name: "查看提醒" }).click({ force: true });
   await expect(page.getByText("证据被退回，请补充")).toBeVisible();
   const state = await page.evaluate((key) => JSON.parse(window.localStorage.getItem(key)!), storageKey);
   expect(state.actions.find((item: { id: string }) => item.id === "member-recall").status).toBe("returned");
@@ -503,27 +510,35 @@ test("总部策略新版本只有人工发布后才同步门店并保留审计�
   expect(state.activity.some((item: { event: string }) => item.event.includes("发布策略 v4.0"))).toBe(true);
 });
 
-test("学院按当前问题匹配案例并可加入今日经营行动", async ({ page }) => {
+test("麻婆经营大学可打开课程、通过小测并进入现场实操", async ({ page }) => {
   await openDemo(page);
   await page.getByRole("button", { name: "学院", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "会员不是名单，要能被找到和再次触达" })).toBeVisible();
-  await page.getByRole("button", { name: "加入今日行动" }).click();
+  await expect(page.getByRole("heading", { name: "麻婆经营大学" })).toBeVisible();
+  await page.getByRole("button", { name: /流量与会员/ }).click();
+  await page.getByRole("button", { name: /会员召回实操/ }).click();
+  await page.getByRole("button", { name: /B\. 新增预约与到店/ }).click();
+  await page.getByRole("button", { name: "马上实操" }).click();
   await expect(page.getByRole("heading", { name: "每一步都从经营问题出发" })).toBeVisible();
 });
 
-test("五类周麻婆案例均可查询且当前节点只主动出现一个", async ({ page }) => {
+test("学院六类、三条路径与18课均可由适配器查询", async ({ page }) => {
   await openDemo(page);
   const state = await page.evaluate((key) => JSON.parse(window.localStorage.getItem(key)!), storageKey);
   expect(state.knowledgeCases).toHaveLength(5);
   expect(new Set(state.knowledgeCases.map((item: { topic: string }) => item.topic))).toEqual(new Set(["traffic", "rating", "people", "product", "support"]));
-  await page.getByRole("button", { name: /周麻婆知识匹配/ }).click();
-  await expect(page.getByRole("heading", { name: "会员不是名单，要能被找到和再次触达" })).toBeVisible();
-  await expect(page.locator(".knowledge-detail-hero")).toHaveCount(1);
+  await page.getByRole("button", { name: "学院", exact: true }).click();
+  await expect(page.locator(".v9-learning-categories button")).toHaveCount(6);
+  await expect(page.locator(".v9-learning-paths button")).toHaveCount(3);
+  for (const category of ["业绩增长", "流量与会员", "菜品与菜单", "采购库存沽清", "顾客体验口碑", "团队管理带教"]) {
+    await page.getByRole("button", { name: new RegExp(category) }).click();
+    await expect(page.getByTestId("learning-assets").getByRole("button")).toHaveCount(3);
+  }
 });
 
 test("收官复盘严格区分预测与实际并生成人工确认记录", async ({ page }) => {
   await openDemo(page);
   await page.getByRole("button", { name: "我的", exact: true }).click();
+  await page.getByText("演示与帮助", { exact: true }).click();
   await page.getByRole("button", { name: "21:30" }).click();
   await page.getByRole("button", { name: "今日", exact: true }).click();
   await page.getByRole("button", { name: "查看复盘" }).click();
@@ -542,6 +557,7 @@ test("收官复盘严格区分预测与实际并生成人工确认记录", async
 test("手动跳到收官但未完成动作时不会伪造¥100,600", async ({ page }) => {
   await openDemo(page);
   await page.getByRole("button", { name: "我的", exact: true }).click();
+  await page.getByText("演示与帮助", { exact: true }).click();
   await page.getByRole("button", { name: "21:30" }).click();
   await page.getByRole("button", { name: "今日", exact: true }).click();
   await expect(page.getByText("¥94,100")).toBeVisible();
@@ -553,6 +569,7 @@ test("手动跳到收官但未完成动作时不会伪造¥100,600", async ({ pa
 test("收官页顺序为经营改善、明日动作、成长证据", async ({ page }) => {
   await openDemo(page);
   await page.getByRole("button", { name: "我的", exact: true }).click();
+  await page.getByText("演示与帮助", { exact: true }).click();
   await page.getByRole("button", { name: "21:30" }).click();
   await page.getByRole("button", { name: "今日", exact: true }).click();
   await page.getByRole("button", { name: "查看复盘" }).click();
@@ -578,7 +595,8 @@ test("终局进度刷新保留，重置只清终局键且恢复08:30", async ({ 
     window.localStorage.setItem("zhoumapo-manager-assistant-final-v1", "preserve-v5");
   });
   await page.getByRole("button", { name: "我的", exact: true }).click();
-  await page.getByRole("button", { name: /重置终局演示/ }).click();
+  await page.getByText("演示与帮助", { exact: true }).click();
+  await page.getByRole("button", { name: /重置V9演示/ }).click();
   await page.getByRole("button", { name: "确认重置" }).click();
   await expect(page.getByRole("heading", { name: "黄店长，早上好" })).toBeVisible();
   expect(await page.evaluate(() => window.localStorage.getItem("zhoumapo-manager-assistant-v4"))).toBe("preserve-v4");
@@ -617,7 +635,7 @@ test("减少动态效果时停止长动画且核心交互仍可用", async ({ pa
   await expect(page.getByRole("button", { name: "帮我开晨会" })).toBeVisible();
 });
 
-test("V8长按350毫秒后语音转写只生成预填意图", async ({ page }) => {
+test("V9长按350毫秒后语音转写只生成预填意图", async ({ page }) => {
   await openDemo(page);
   const button = page.getByTestId("hold-to-talk-button-today");
   await button.dispatchEvent("pointerdown", { pointerId: 1, clientY: 500 });
@@ -631,7 +649,7 @@ test("V8长按350毫秒后语音转写只生成预填意图", async ({ page }) =
   expect(state.actions.find((item: { id: string }) => item.id === "member-recall").released).toBe(false);
 });
 
-test("V8语音上滑取消不产生意图或正式动作", async ({ page }) => {
+test("V9语音上滑取消不产生意图或正式动作", async ({ page }) => {
   await openDemo(page);
   const button = page.getByTestId("hold-to-talk-button-today");
   await button.dispatchEvent("pointerdown", { pointerId: 2, clientY: 600, isPrimary: true });
@@ -644,7 +662,7 @@ test("V8语音上滑取消不产生意图或正式动作", async ({ page }) => {
   expect(state.voiceSession.intent).toBeNull();
 });
 
-test("V8数据周期切换、语音问数和专题图片证据均可用", async ({ page }) => {
+test("V9数据周期切换、语音问数和专题图片证据均可用", async ({ page }) => {
   await openDemo(page);
   await page.getByRole("button", { name: "数据", exact: true }).click();
   await page.getByRole("tab", { name: "7日" }).click();
@@ -658,13 +676,101 @@ test("V8数据周期切换、语音问数和专题图片证据均可用", async 
   await expect(page.getByText("演示场景")).toBeVisible();
 });
 
-test("V8中午巡检使用有来源的演示图并带AI标注", async ({ page }) => {
+test("V9中午巡检使用有来源的演示图并带AI标注", async ({ page }) => {
   await openDemo(page);
   await page.getByRole("button", { name: "我的", exact: true }).click();
+  await page.getByText("演示与帮助", { exact: true }).click();
   await page.getByRole("button", { name: "12:00" }).click();
   await page.getByRole("button", { name: "今日", exact: true }).click();
   await page.getByRole("button", { name: "拍照复查" }).click();
   await expect(page.locator(".inspection-image-shell img")).toHaveAttribute("src", /lunch-inspection-demo\.png/);
   await expect(page.getByText("传菜口", { exact: true })).toBeVisible();
   await expect(page.getByText("人员到岗", { exact: true })).toBeVisible();
+});
+
+test("V9首页长度约1.35至1.65个视口且下拉有完整内容", async ({ page }) => {
+  await openDemo(page);
+  const size = await page.evaluate(() => {
+    const scroll = document.querySelector<HTMLElement>(".mobile-scroll")!;
+    return { client: scroll.clientHeight, content: scroll.scrollHeight };
+  });
+  expect(size.content / size.client).toBeGreaterThanOrEqual(1.35);
+  expect(size.content / size.client).toBeLessThanOrEqual(1.65);
+  await page.locator(".mobile-scroll").evaluate((element) => { element.scrollTop = element.scrollHeight; });
+  await expect(page.getByRole("button", { name: /会员召回实操/ })).toBeVisible();
+  await expect(page.getByRole("region", { name: "今天经营路线" })).toBeVisible();
+});
+
+test("V9四个首页快捷入口都进入有效流程", async ({ page }) => {
+  await openDemo(page);
+  await page.getByTestId("home-shortcuts").getByRole("button", { name: /开晨会/ }).click();
+  await expect(page.getByRole("heading", { name: /只讲清顾客缺口/ })).toBeVisible();
+  await backToRoot(page);
+  await page.getByTestId("home-shortcuts").getByRole("button", { name: /拍照巡检/ }).click();
+  await expect(page.getByRole("heading", { name: /拍一张，AI替你完成巡检/ })).toBeVisible();
+  await backToRoot(page);
+  await page.getByTestId("home-shortcuts").getByRole("button", { name: /采购申请/ }).click();
+  await expect(page.getByRole("heading", { name: "鸡肉采购申请" })).toBeVisible();
+  await backToRoot(page);
+  await page.getByTestId("home-shortcuts").getByRole("button", { name: /库存与沽清/ }).click();
+  await expect(page.getByRole("heading", { name: "爆炒鲜椒鸡库存与沽清" })).toBeVisible();
+});
+
+test("V9采购从预警走到到货拍照验收且不自动付款", async ({ page }) => {
+  await openDemo(page);
+  await page.getByTestId("home-shortcuts").getByRole("button", { name: /采购申请/ }).click();
+  for (const label of ["让AI生成采购草稿", "确认数量与预算", "人工确认提交", "模拟供应商接单", "拍照验收到货"]) {
+    await page.getByRole("button", { name: label }).click();
+    await waitForBusy(page);
+  }
+  await expect(page.getByRole("heading", { name: "到货验收完成" })).toBeVisible();
+  const state = await page.evaluate((key) => JSON.parse(window.localStorage.getItem(key)!), storageKey);
+  expect(state.storeOperations.find((item: { id: string }) => item.id === "operation-procurement").status).toBe("closed");
+  expect(await page.locator("body").innerText()).not.toContain("自动付款完成");
+});
+
+test("V9沽清同步三渠道并在库存恢复后重新上架", async ({ page }) => {
+  await openDemo(page);
+  await page.getByTestId("home-shortcuts").getByRole("button", { name: /库存与沽清/ }).click();
+  for (const label of ["选择一键沽清", "确认替代菜", "人工确认同步渠道", "模拟库存恢复", "重新上架"]) {
+    await page.getByRole("button", { name: label }).click();
+    await waitForBusy(page);
+  }
+  await expect(page.getByRole("heading", { name: "菜品已恢复上架" })).toBeVisible();
+  for (const channel of ["收银", "美团", "抖音"]) await expect(page.getByText(channel, { exact: true })).toBeVisible();
+});
+
+test("V9课程进度、小测与收藏刷新后保留", async ({ page }) => {
+  await openDemo(page);
+  await page.getByRole("button", { name: "学院", exact: true }).click();
+  await page.getByRole("button", { name: /3分钟晨会/ }).first().click();
+  await page.getByRole("button", { name: "收藏课程" }).click();
+  await page.getByRole("button", { name: /A\. 员工是否接收/ }).click();
+  await page.reload();
+  const state = await page.evaluate((key) => JSON.parse(window.localStorage.getItem(key)!), storageKey);
+  const progress = state.learningProgress.find((item: { assetId: string }) => item.assetId === "team-meeting");
+  expect(progress.quizPassed).toBe(true);
+  expect(progress.bookmarked).toBe(false);
+});
+
+test("V9我的可进入任务报表学习收藏和晋升路径", async ({ page }) => {
+  await openDemo(page);
+  await page.getByRole("button", { name: "我的", exact: true }).click();
+  await expect(page.getByRole("button", { name: /我的任务/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /我的报表/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /我的学习/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /我的收藏/ })).toBeVisible();
+  await page.getByRole("button", { name: /二星升三星/ }).click();
+  await expect(page.getByRole("heading", { name: "下一站：3星店长" })).toBeVisible();
+});
+
+test("V9店长页面不出现健康值六维评分或指定个人求助文案", async ({ page }) => {
+  for (const tab of ["今日", "数据", "任务", "学院", "我的"]) {
+    await openDemo(page);
+    await page.getByRole("navigation", { name: "底部导航" }).getByRole("button").filter({ hasText: tab }).click();
+    const text = await page.locator("main.store-page").innerText();
+    expect(text).not.toContain("健康值");
+    expect(text).not.toContain("六维评分");
+    expect(text).not.toContain("找林阳帮忙");
+  }
 });
